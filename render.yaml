@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: cipherroom
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "true"
+      - key: ALLOW_FRAMING
+        value: "false"
+      - key: ROOM_CODE_LENGTH
+        value: "6"
+      - key: ROOM_MAX_PARTICIPANTS
+        value: "12"
+      - key: APP_URL
+        sync: false
+      - key: STUN_SERVER
+        value: stun:stun.cloudflare.com:3478,stun:stun.l.google.com:19302
+      - key: TURN_SERVER
+        sync: false
+      - key: TURN_USERNAME
+        sync: false
+      - key: TURN_PASSWORD
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+# Optional Valkey/Redis for a future multi-instance adapter. The default
+# single instance uses in-memory ephemeral state and does not require this.
+# databases:
+#   - name: cipherroom-valkey
+#     plan: starter

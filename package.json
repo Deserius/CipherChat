@@ -1,0 +1,59 @@
+{
+  "name": "cipherroom",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CipherRoom — ephemeral, privacy-first encrypted communication rooms. No accounts. No permanent identity.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n server,client -c cyan,magenta \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "tsx watch server/src/main.ts",
+    "dev:client": "vite --config client/vite.config.ts",
+    "build": "vite build --config client/vite.config.ts",
+    "start": "NODE_ENV=production tsx server/src/main.ts",
+    "test": "vitest run --config tests/vitest.config.ts",
+    "test:watch": "vitest --config tests/vitest.config.ts",
+    "lint": "tsc -p server/tsconfig.json --noEmit && tsc -p client/tsconfig.json --noEmit",
+    "preview": "vite preview --config client/vite.config.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@types/qrcode": "^1.5.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0",
+    "qrcode": "^1.5.4",
+    "tsx": "^4.19.2",
+    "ws": "^8.18.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@fontsource/ibm-plex-mono": "^5.1.1",
+    "@fontsource/ibm-plex-sans": "^5.1.1",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/supertest": "^6.0.2",
+    "@types/ws": "^8.5.13",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.0",
+    "lucide-react": "^0.468.0",
+    "postcss": "^8.4.49",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "supertest": "^7.0.0",
+    "tailwindcss": "^3.4.16",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "vitest": "^2.1.8",
+    "zustand": "^5.0.2"
+  }
+}

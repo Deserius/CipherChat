@@ -1,0 +1,29 @@
+services:
+  cipherroom:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      TRUST_PROXY: "true"
+      ALLOW_FRAMING: ${ALLOW_FRAMING:-false}
+      ROOM_CODE_LENGTH: ${ROOM_CODE_LENGTH:-6}
+      ROOM_MAX_PARTICIPANTS: ${ROOM_MAX_PARTICIPANTS:-12}
+      STUN_SERVER: ${STUN_SERVER:-stun:stun.cloudflare.com:3478,stun:stun.l.google.com:19302}
+      TURN_SERVER: ${TURN_SERVER:-}
+      TURN_USERNAME: ${TURN_USERNAME:-}
+      TURN_PASSWORD: ${TURN_PASSWORD:-}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER:-}
+      REDIS_URL: ${REDIS_URL:-}
+    restart: unless-stopped
+
+  # Optional: un-comment to run a local coturn instance.
+  # You still need to point TURN_SERVER at turn:coturn:3478 and set credentials.
+  # coturn:
+  #   image: coturn/coturn
+  #   network_mode: host
+  #   command: ["-n", "--log-file=stdout", "--lt-cred-mech", "--user=cipher:changeme"]
