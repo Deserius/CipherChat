@@ -1,8 +1,8 @@
 {
-  "name": "cipherroom",
+  "name": "cipherchat",
   "version": "1.0.0",
   "private": true,
-  "description": "CipherRoom — ephemeral, privacy-first encrypted communication rooms. No accounts. No permanent identity.",
+  "description": "CipherChat — ephemeral, privacy-first encrypted communication rooms. No accounts. No permanent identity.",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -27,6 +27,7 @@
     "express-rate-limit": "^7.4.1",
     "helmet": "^8.0.0",
     "qrcode": "^1.5.4",
+    "stripe": "^23.0.0",
     "tsx": "^4.19.2",
     "ws": "^8.18.0",
     "zod": "^3.24.1"

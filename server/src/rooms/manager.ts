@@ -17,6 +17,8 @@ export interface Participant {
   messageWindowStart: number;
   messageCount: number;
   graceTimer: ReturnType<typeof setTimeout> | null;
+  plan: 'free' | 'plus' | 'pro';
+  maxFileBytes: number;
 }
 
 export interface Room {
@@ -28,6 +30,10 @@ export interface Room {
   lifetimeTimer: ReturnType<typeof setTimeout> | null;
   inactivityTimer: ReturnType<typeof setTimeout> | null;
   destroyed: boolean;
+  maxParticipants: number;
+  holdMs: number;
+  maxLifetimeMs: number;
+  plan: 'free' | 'plus' | 'pro';
 }
 
 export type RoomEvent =
@@ -80,6 +86,11 @@ export class RoomManager {
     createRandom?: boolean;
     sessionToken?: string;
     ws: WebSocket;
+    plan?: 'free' | 'plus' | 'pro';
+    maxParticipants?: number;
+    holdMs?: number;
+    maxLifetimeMs?: number;
+    maxFileBytes?: number;
   }): { room: Room; participant: Participant; created: boolean } {
     // Resume existing session if token is still valid
     if (opts.sessionToken) {
@@ -103,22 +114,39 @@ export class RoomManager {
 
     let room = this.rooms.get(code);
     if (!room) {
-      room = this.createRoom(code);
+      room = this.createRoom(code, {
+        maxParticipants: opts.maxParticipants,
+        holdMs: opts.holdMs,
+        maxLifetimeMs: opts.maxLifetimeMs,
+        plan: opts.plan,
+      });
       created = true;
     }
     if (room.destroyed) {
       throw Object.assign(new Error('room-expired'), { code: 'room-expired' });
     }
-    if (room.participants.size >= config.maxParticipants) {
+    if (room.participants.size >= room.maxParticipants) {
       throw Object.assign(new Error('room-full'), { code: 'room-full' });
     }
 
-    const participant = this.addParticipant(room, opts.name, opts.ws);
+    const participant = this.addParticipant(room, opts.name, opts.ws, {
+      plan: opts.plan,
+      maxFileBytes: opts.maxFileBytes,
+    });
     this.touch(room);
     return { room, participant, created };
   }
 
-  createRoom(code: string): Room {
+  createRoom(
+    code: string,
+    limits?: {
+      maxParticipants?: number;
+      holdMs?: number;
+      maxLifetimeMs?: number;
+      plan?: 'free' | 'plus' | 'pro';
+    },
+  ): Room {
+    const maxLifetimeMs = limits?.maxLifetimeMs ?? config.roomMaxLifetimeMs;
     const room: Room = {
       code,
       createdAt: Date.now(),
@@ -128,11 +156,15 @@ export class RoomManager {
       lifetimeTimer: null,
       inactivityTimer: null,
       destroyed: false,
+      maxParticipants: limits?.maxParticipants ?? config.maxParticipants,
+      holdMs: limits?.holdMs ?? config.roomDestroyGraceMs,
+      maxLifetimeMs,
+      plan: limits?.plan ?? 'free',
     };
-    if (config.roomMaxLifetimeMs > 0) {
+    if (maxLifetimeMs > 0) {
       room.lifetimeTimer = setTimeout(() => {
         this.destroyRoom(code, 'max-lifetime');
-      }, config.roomMaxLifetimeMs);
+      }, maxLifetimeMs);
     }
     this.resetInactivity(room);
     this.rooms.set(code, room);
@@ -140,7 +172,12 @@ export class RoomManager {
     return room;
   }
 
-  addParticipant(room: Room, name: string, ws: WebSocket): Participant {
+  addParticipant(
+    room: Room,
+    name: string,
+    ws: WebSocket,
+    extras?: { plan?: 'free' | 'plus' | 'pro'; maxFileBytes?: number },
+  ): Participant {
     const id = generateId();
     const sessionToken = generateToken(32);
     const p: Participant = {
@@ -157,6 +194,8 @@ export class RoomManager {
       messageWindowStart: Date.now(),
       messageCount: 0,
       graceTimer: null,
+      plan: extras?.plan ?? 'free',
+      maxFileBytes: extras?.maxFileBytes ?? config.maxFileBytes,
     };
     room.participants.set(id, p);
     this.sessions.set(sessionToken, { roomCode: room.code, participantId: id });
@@ -309,7 +348,7 @@ export class RoomManager {
       if (this.connectedCount(room) === 0) {
         this.destroyRoom(room.code, 'empty');
       }
-    }, config.roomDestroyGraceMs);
+    }, room.holdMs);
   }
 
   destroyRoom(code: string, reason: 'empty' | 'expired' | 'inactivity' | 'max-lifetime' | 'shutdown') {
@@ -352,4 +391,4 @@ export class RoomManager {
 }
 
 export const emptyFileStoreNote =
-  'CipherRoom does not persist files. Relayed chunks exist only in memory during transfer.';
+  'CipherChat does not persist files. Relayed chunks exist only in memory during transfer.';

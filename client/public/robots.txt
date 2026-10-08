@@ -1,4 +1,4 @@
-# CipherRoom is a communication app, not a content site.
+# CipherChat is a communication app, not a content site.
 User-agent: *
 Disallow: /room/
 Disallow: /r/

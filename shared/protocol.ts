@@ -43,6 +43,8 @@ export interface JoinMessage {
   roomCode?: string;
   createRandom?: boolean;
   sessionToken?: string;
+  /** HMAC-signed Stripe entitlement. Opaque to other peers. */
+  entitlement?: string;
 }
 
 export interface LeaveMessage {
@@ -303,6 +305,7 @@ export interface PublicConfig {
   twilioEnabled: boolean;
   stunConfigured: boolean;
   turnConfigured: boolean;
+  billingEnabled: boolean;
 }
 
 export interface RTCIceServerLike {

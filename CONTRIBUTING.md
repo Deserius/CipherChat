@@ -1,4 +1,4 @@
-# Contributing to CipherRoom
+# Contributing to CipherChat
 
 Thank you for helping keep ephemeral communication actually ephemeral.
 

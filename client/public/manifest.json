@@ -1,6 +1,6 @@
 {
-  "name": "CipherRoom",
-  "short_name": "CipherRoom",
+  "name": "CipherChat",
+  "short_name": "CipherChat",
   "description": "Temporary encrypted communication rooms. No account required.",
   "start_url": "/",
   "scope": "/",

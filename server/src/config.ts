@@ -62,6 +62,14 @@ export const config = {
   twilioAccountSid: process.env.TWILIO_ACCOUNT_SID ?? '',
   twilioAuthToken: process.env.TWILIO_AUTH_TOKEN ?? '',
   twilioPhoneNumber: process.env.TWILIO_PHONE_NUMBER ?? '',
+
+  stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? '',
+  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? '',
+  stripePricePlusMonthly: process.env.STRIPE_PRICE_PLUS_MONTHLY ?? '',
+  stripePricePlusYearly: process.env.STRIPE_PRICE_PLUS_YEARLY ?? '',
+  stripePriceProMonthly: process.env.STRIPE_PRICE_PRO_MONTHLY ?? '',
+  stripePriceProYearly: process.env.STRIPE_PRICE_PRO_YEARLY ?? '',
+  entitlementSecret: process.env.ENTITLEMENT_SECRET ?? '',
 };
 
 export function iceServers() {
@@ -86,5 +94,6 @@ export function publicConfig() {
     ),
     stunConfigured: config.stunServers.length > 0,
     turnConfigured: Boolean(config.turnServer && config.turnUsername && config.turnPassword),
+    billingEnabled: Boolean(config.stripeSecretKey),
   };
 }

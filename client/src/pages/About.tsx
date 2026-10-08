@@ -19,7 +19,7 @@ export default function AboutPage() {
           <span className="lock-dot" />
           About the developer
         </div>
-        <h1 className="text-4xl font-semibold text-white">CipherRoom</h1>
+        <h1 className="text-4xl font-semibold text-white">CipherChat</h1>
         <p className="mt-3 text-lg text-slate-400">
           Private, ephemeral communication rooms. No permanent identity.
         </p>
@@ -28,7 +28,7 @@ export default function AboutPage() {
           <div className="font-mono text-[11px] uppercase tracking-[0.22em] text-cyan-glow">Developer</div>
           <h2 className="mt-2 text-2xl font-semibold text-white">{DEVELOPER}</h2>
           <p className="mt-3 text-[15px] leading-7 text-slate-300">
-            CipherRoom was designed and built by {DEVELOPER}. The original product concept,
+            CipherChat was designed and built by {DEVELOPER}. The original product concept,
             interface, architecture, and branding are the creative work of the developer.
           </p>
           <dl className="mt-6 grid gap-3 text-sm sm:grid-cols-2">
@@ -43,7 +43,7 @@ export default function AboutPage() {
             <div className="rounded-2xl bg-white/5 px-4 py-3 sm:col-span-2">
               <dt className="text-[11px] uppercase tracking-wider text-slate-500">Copyright</dt>
               <dd className="mt-1 text-white">
-                © {COPYRIGHT_YEAR} {DEVELOPER}. CipherRoom and related original materials are
+                © {COPYRIGHT_YEAR} {DEVELOPER}. CipherChat and related original materials are
                 protected by copyright. Unauthorized copying of the product’s branding, distinctive
                 design, or proprietary assets is not permitted. Open-source components used by this
                 application remain under their own licenses.
@@ -57,7 +57,7 @@ export default function AboutPage() {
           <h2 className="mt-2 text-2xl font-semibold text-white">No legal responsibility for use</h2>
           <div className="mt-4 space-y-4 text-[15px] leading-7 text-slate-300">
             <p>
-              CipherRoom is a technical tool for temporary communication. {DEVELOPER} and {COMPANY}{' '}
+              CipherChat is a technical tool for temporary communication. {DEVELOPER} and {COMPANY}{' '}
               do <strong className="text-white">not</strong> monitor rooms, do not join your
               conversations, and do not accept responsibility for how any person uses this software.
             </p>
@@ -72,7 +72,7 @@ export default function AboutPage() {
               liability for:
             </p>
             <ul className="list-disc space-y-1 pl-5 text-slate-400">
-              <li>Any use or misuse of CipherRoom by you or by anyone you invite</li>
+              <li>Any use or misuse of CipherChat by you or by anyone you invite</li>
               <li>Communications, files, or media exchanged inside a room</li>
               <li>Lost messages, dropped calls, room destruction, or service interruption</li>
               <li>Unauthorized access that results from a shared room code or invite link</li>
@@ -82,7 +82,7 @@ export default function AboutPage() {
             <p>
               The software is provided <em>“as is”</em> and <em>“as available,”</em> without
               warranties of merchantability, fitness for a particular purpose, non-infringement, or
-              uninterrupted operation. If you do not agree, do not use CipherRoom.
+              uninterrupted operation. If you do not agree, do not use CipherChat.
             </p>
             <p className="text-sm text-slate-500">
               This page is informational and is not legal advice. See also the{' '}

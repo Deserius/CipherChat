@@ -12,7 +12,7 @@ export function InviteShare({
   const url = inviteUrl(code);
   const [qr, setQr] = useState<string | null>(null);
   const [copied, setCopied] = useState<'link' | 'code' | null>(null);
-  const message = `Join my CipherRoom. One tap, enter a name, allow camera/mic: ${url}`;
+  const message = `Join my CipherChat. One tap, enter a name, allow camera/mic: ${url}`;
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -57,7 +57,7 @@ export function InviteShare({
   async function nativeShare() {
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'CipherRoom invite', text: message, url });
+        await navigator.share({ title: 'CipherChat invite', text: message, url });
         return;
       } catch {
         /* cancelled */
@@ -67,9 +67,9 @@ export function InviteShare({
   }
 
   const sms = `sms:?&body=${encodeURIComponent(message)}`;
-  const mail = `mailto:?subject=${encodeURIComponent('CipherRoom invite')}&body=${encodeURIComponent(message)}`;
+  const mail = `mailto:?subject=${encodeURIComponent('CipherChat invite')}&body=${encodeURIComponent(message)}`;
   const wa = `https://wa.me/?text=${encodeURIComponent(message)}`;
-  const tg = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent('Join my CipherRoom')}`;
+  const tg = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent('Join my CipherChat')}`;
 
   return (
     <div

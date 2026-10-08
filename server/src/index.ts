@@ -10,6 +10,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { config } from './config.ts';
 import { RoomManager } from './rooms/manager.ts';
 import { createApi } from './routes/api.ts';
+import { billingWebhook, createBillingRouter } from './routes/billing.ts';
 import {
   createSend,
   handleUpgradeWelcome,
@@ -67,11 +68,11 @@ export function createApp(manager: RoomManager) {
           styleSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", 'blob:', 'data:'],
           fontSrc: ["'self'"],
-          connectSrc: ["'self'", 'ws:', 'wss:', 'stun:', 'stuns:', 'turn:', 'turns:'],
+          connectSrc: ["'self'", 'ws:', 'wss:', 'stun:', 'stuns:', 'turn:', 'turns:', 'https://checkout.stripe.com', 'https://api.stripe.com'],
           mediaSrc: ["'self'", 'blob:'],
           objectSrc: ["'none'"],
           baseUri: ["'self'"],
-          formAction: ["'self'"],
+          formAction: ["'self'", 'https://checkout.stripe.com', 'https://billing.stripe.com'],
           frameAncestors: config.allowFraming ? ['*'] : ["'self'"],
           upgradeInsecureRequests: config.isProd ? [] : null,
         },
@@ -104,6 +105,12 @@ export function createApp(manager: RoomManager) {
     next();
   });
 
+  app.post(
+    '/api/billing/webhook',
+    express.raw({ type: 'application/json' }),
+    (req, res) => void billingWebhook(req, res),
+  );
+
   app.use(express.json({ limit: '32kb' }));
 
   const httpLimiter = rateLimit({
@@ -114,6 +121,7 @@ export function createApp(manager: RoomManager) {
     message: { error: 'Too many requests. Please wait.' },
   });
   app.use('/api', httpLimiter);
+  app.use('/api/billing', createBillingRouter());
   app.use('/api', createApi(manager));
 
   // Never cache HTML; static assets hashed by Vite can be cached.
@@ -147,7 +155,7 @@ export function createApp(manager: RoomManager) {
     res.sendFile(path.join(clientDist, 'index.html'), (err) => {
       if (err) {
         res.status(503).type('html').send(
-          '<!doctype html><meta charset="utf-8"><title>CipherRoom</title><body style="background:#05070b;color:#e8eef7;font-family:sans-serif;padding:2rem"><h1>Client bundle missing</h1><p>Run <code>npm run build</code> or <code>npm run dev</code>.</p>',
+          '<!doctype html><meta charset="utf-8"><title>CipherChat</title><body style="background:#05070b;color:#e8eef7;font-family:sans-serif;padding:2rem"><h1>Client bundle missing</h1><p>Run <code>npm run build</code> or <code>npm run dev</code>.</p>',
         );
       }
     });

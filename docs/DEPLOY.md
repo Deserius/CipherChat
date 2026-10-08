@@ -25,6 +25,12 @@ curl http://localhost:3000/api/health
    - `NODE_ENV` = `production`
    - optional TURN and Twilio secrets as **secret** env vars
 4. Health check path: `/api/health`
+5. Optional Stripe (Plus/Pro):
+   - `STRIPE_SECRET_KEY` = `sk_live_…` or `sk_test_…`
+   - `STRIPE_WEBHOOK_SECRET` = `whsec_…` (endpoint `https://<host>/api/billing/webhook`)
+   - optional `STRIPE_PRICE_PLUS_MONTHLY` / `_YEARLY` / `STRIPE_PRICE_PRO_*`
+   - `ENTITLEMENT_SECRET` = long random string
+   - `APP_URL` must be the public HTTPS origin so Checkout success URLs work
 
 The SPA, REST API, and WebSocket endpoint share one service so Render’s reverse proxy can keep them on the same origin (`wss://…/ws`).
 

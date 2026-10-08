@@ -1,4 +1,4 @@
-export const APP_NAME = 'CipherRoom';
+export const APP_NAME = 'CipherChat';
 export const APP_TAGLINE = 'Private communication. No permanent identity.';
 
 export const ROOM_CODE_MIN_DIGITS = 4;

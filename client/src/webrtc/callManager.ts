@@ -1,4 +1,7 @@
 import type { WsClient } from '../services/wsClient';
+import { FALLBACK_ICE, rtcConfiguration } from './rtcConfig';
+import type { PlanId } from '@shared/billing';
+import { PLAN_LIMITS } from '@shared/billing';
 
 export interface PeerMedia {
   id: string;
@@ -15,6 +18,9 @@ interface Peer {
   makingOffer: boolean;
   ignoreOffer: boolean;
   stream: MediaStream;
+  recovering: boolean;
+  lastRestart: number;
+  pendingCandidates: RTCIceCandidateInit[];
 }
 
 export class CallManager {
@@ -31,6 +37,7 @@ export class CallManager {
   selectedCamera?: string;
   selectedMic?: string;
   selectedSpeaker?: string;
+  plan: PlanId = 'free';
   onPeers: (peers: PeerMedia[]) => void = () => {};
   onLocalStream: (s: MediaStream | null) => void = () => {};
   onError: (msg: string) => void = () => {};
@@ -41,27 +48,14 @@ export class CallManager {
     this.ws = ws;
   }
 
-  configure(selfId: string, iceServers: RTCIceServer[]) {
+  configure(selfId: string, iceServers: RTCIceServer[], plan: PlanId = 'free') {
     this.selfId = selfId;
-    const fallback: RTCIceServer[] = [
-      {
-        urls: [
-          'stun:stun.cloudflare.com:3478',
-          'stun:stun.l.google.com:19302',
-          'stun:stun1.l.google.com:19302',
-        ],
-      },
-      {
-        urls: [
-          'turn:openrelay.metered.ca:80',
-          'turn:openrelay.metered.ca:443',
-          'turn:openrelay.metered.ca:443?transport=tcp',
-        ],
-        username: 'openrelayproject',
-        credential: 'openrelayproject',
-      },
-    ];
-    this.iceServers = iceServers.length ? iceServers : fallback;
+    this.iceServers = iceServers.length ? iceServers : FALLBACK_ICE;
+    this.plan = plan;
+  }
+
+  setPlan(plan: PlanId) {
+    this.plan = plan;
   }
 
   /** Attach a stream already obtained from the permission gate. */
@@ -70,7 +64,7 @@ export class CallManager {
     this.micOn = stream.getAudioTracks().some((t) => t.enabled && t.readyState === 'live');
     this.cameraOn = stream.getVideoTracks().some((t) => t.enabled && t.readyState === 'live');
     this.audioOnly = this.micOn && !this.cameraOn;
-    this.pushTracksToAll();
+    void this.pushTracksToAll();
     this.onLocalStream(stream);
   }
 
@@ -81,28 +75,61 @@ export class CallManager {
   async ensurePeer(id: string) {
     if (this.peers.has(id) || id === this.selfId) return;
     const polite = this.selfId < id;
-    const pc = new RTCPeerConnection({ iceServers: this.iceServers });
+    const pc = new RTCPeerConnection(rtcConfiguration(this.iceServers));
     const stream = new MediaStream();
-    const peer: Peer = { id, pc, polite, makingOffer: false, ignoreOffer: false, stream };
+    const peer: Peer = {
+      id,
+      pc,
+      polite,
+      makingOffer: false,
+      ignoreOffer: false,
+      stream,
+      recovering: false,
+      lastRestart: 0,
+      pendingCandidates: [],
+    };
     this.peers.set(id, peer);
 
+    // Pre-create m-lines so turning the camera on later is replaceTrack, not a new negotiation.
+    pc.addTransceiver('audio', { direction: 'sendrecv' });
+    pc.addTransceiver('video', { direction: 'sendrecv' });
+
     pc.onicecandidate = (ev) => {
-      if (ev.candidate) {
-        this.ws.send({ type: 'signal', to: id, data: { candidate: ev.candidate } });
-      }
+      this.ws.send({ type: 'signal', to: id, data: { candidate: ev.candidate } });
     };
 
-    pc.ontrack = (ev) => {
-      ev.streams[0]?.getTracks().forEach((t) => {
-        if (!stream.getTracks().some((x) => x.id === t.id)) stream.addTrack(t);
-      });
-      if (!ev.streams[0]) {
-        if (!stream.getTracks().some((x) => x.id === ev.track.id)) stream.addTrack(ev.track);
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+        void this.restartIce(peer);
       }
       this.emitPeers();
     };
 
-    pc.onconnectionstatechange = () => this.emitPeers();
+    pc.ontrack = (ev) => {
+      const add = (t: MediaStreamTrack) => {
+        if (!stream.getTracks().some((x) => x.id === t.id)) stream.addTrack(t);
+        t.onunmute = () => this.emitPeers();
+        t.onmute = () => this.emitPeers();
+        t.onended = () => {
+          try {
+            stream.removeTrack(t);
+          } catch {
+            /* ignore */
+          }
+          this.emitPeers();
+        };
+      };
+      add(ev.track);
+      ev.streams[0]?.getTracks().forEach(add);
+      this.emitPeers();
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+        void this.restartIce(peer);
+      }
+      this.emitPeers();
+    };
 
     pc.onnegotiationneeded = async () => {
       try {
@@ -116,15 +143,43 @@ export class CallManager {
       }
     };
 
-    this.addLocalTracks(pc);
+    await this.bindTracks(pc);
     this.emitPeers();
+  }
+
+  /** Re-gather ICE so a dropped P2P path can fall over to TURN (or a better pair). */
+  private async restartIce(peer: Peer) {
+    const now = Date.now();
+    if (peer.recovering || now - peer.lastRestart < 4000) return;
+    if (peer.pc.signalingState === 'closed') return;
+    peer.recovering = true;
+    peer.lastRestart = now;
+    try {
+      peer.pc.restartIce();
+      if (peer.pc.signalingState === 'stable') {
+        peer.makingOffer = true;
+        await peer.pc.setLocalDescription();
+        this.ws.send({
+          type: 'signal',
+          to: peer.id,
+          data: { description: peer.pc.localDescription, iceRestart: true },
+        });
+      }
+    } catch (e) {
+      console.warn('ice restart failed', e);
+    } finally {
+      peer.makingOffer = false;
+      window.setTimeout(() => {
+        peer.recovering = false;
+      }, 2500);
+    }
   }
 
   async handleSignal(from: string, data: unknown) {
     await this.ensurePeer(from);
     const peer = this.peers.get(from);
     if (!peer || !data || typeof data !== 'object') return;
-    const d = data as { description?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit };
+    const d = data as { description?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit | null };
     const pc = peer.pc;
     try {
       if (d.description) {
@@ -134,13 +189,26 @@ export class CallManager {
         peer.ignoreOffer = !peer.polite && offerCollision;
         if (peer.ignoreOffer) return;
         await pc.setRemoteDescription(description);
+        for (const c of peer.pendingCandidates.splice(0)) {
+          try {
+            await pc.addIceCandidate(c);
+          } catch {
+            /* stale */
+          }
+        }
         if (description.type === 'offer') {
+          await this.bindTracks(pc);
           await pc.setLocalDescription();
           this.ws.send({ type: 'signal', to: from, data: { description: pc.localDescription } });
         }
-      } else if (d.candidate) {
+      } else if ('candidate' in d) {
+        const cand = d.candidate;
+        if (!pc.remoteDescription) {
+          if (cand) peer.pendingCandidates.push(cand);
+          return;
+        }
         try {
-          await pc.addIceCandidate(d.candidate);
+          await pc.addIceCandidate(cand ?? null);
         } catch (err) {
           if (!peer.ignoreOffer) throw err;
         }
@@ -150,28 +218,54 @@ export class CallManager {
     }
   }
 
-  private addLocalTracks(pc: RTCPeerConnection) {
-    const add = (track: MediaStreamTrack, stream: MediaStream) => {
-      const existing = pc.getSenders().find((s) => s.track?.kind === track.kind && s.track?.id === track.id);
-      if (existing) return;
-      // Prefer replacing a same-kind sender that has no live track
-      const empty = pc.getSenders().find((s) => s.track?.kind === track.kind && s.track?.readyState !== 'live');
-      if (empty) {
-        empty.replaceTrack(track).catch(() => pc.addTrack(track, stream));
-      } else {
-        pc.addTrack(track, stream);
-      }
-    };
-    if (this.localStream) {
-      this.localStream.getTracks().forEach((t) => add(t, this.localStream!));
+  private senderOf(pc: RTCPeerConnection, kind: 'audio' | 'video') {
+    const byKind = pc.getTransceivers().find((t) => t.receiver.track?.kind === kind)?.sender;
+    if (byKind) return byKind;
+    return pc.getSenders().find((s) => s.track?.kind === kind) ?? null;
+  }
+
+  private async bindTracks(pc: RTCPeerConnection) {
+    const audio =
+      this.localStream?.getAudioTracks().find((t) => t.readyState === 'live' && t.enabled) ?? null;
+    const camera =
+      this.localStream?.getVideoTracks().find((t) => t.readyState === 'live') ?? null;
+    const screen =
+      this.screenStream?.getVideoTracks().find((t) => t.readyState === 'live') ?? null;
+    const video = screen ?? camera;
+
+    const audioSender = this.senderOf(pc, 'audio');
+    const videoSender = this.senderOf(pc, 'video');
+    try {
+      if (audioSender) await audioSender.replaceTrack(audio);
+      else if (audio && this.localStream) pc.addTrack(audio, this.localStream);
+    } catch {
+      /* ignore */
     }
-    if (this.screenStream) {
-      this.screenStream.getTracks().forEach((t) => add(t, this.screenStream!));
+    try {
+      if (videoSender) await videoSender.replaceTrack(video);
+      else if (video) {
+        const stream = screen ? this.screenStream! : this.localStream!;
+        pc.addTrack(video, stream);
+      }
+    } catch {
+      /* ignore */
     }
   }
 
-  private pushTracksToAll() {
-    for (const peer of this.peers.values()) this.addLocalTracks(peer.pc);
+  private async pushTracksToAll() {
+    await Promise.all([...this.peers.values()].map((p) => this.bindTracks(p.pc)));
+    this.emitPeers();
+  }
+
+  private videoConstraints(): MediaTrackConstraints {
+    const hd = PLAN_LIMITS[this.plan].hdVideo;
+    const base: MediaTrackConstraints = {
+      width: { ideal: hd ? 1920 : 1280 },
+      height: { ideal: hd ? 1080 : 720 },
+      frameRate: { ideal: hd ? 30 : 24 },
+    };
+    if (this.selectedCamera) return { ...base, deviceId: { exact: this.selectedCamera } };
+    return { ...base, facingMode: 'user' };
   }
 
   async setMicrophone(on: boolean) {
@@ -189,7 +283,7 @@ export class CallManager {
         });
         if (track) this.localStream.addTrack(track);
         this.micOn = true;
-        this.pushTracksToAll();
+        await this.pushTracksToAll();
         this.onLocalStream(this.localStream);
       } catch {
         this.onError('Microphone permission is required.');
@@ -201,13 +295,7 @@ export class CallManager {
         t.stop();
         this.localStream?.removeTrack(t);
       });
-      for (const peer of this.peers.values()) {
-        peer.pc.getSenders().forEach((s) => {
-          if (s.track?.kind === 'audio' && !this.screenStream) {
-            s.replaceTrack(null).catch(() => undefined);
-          }
-        });
-      }
+      await this.pushTracksToAll();
       this.micOn = false;
       this.onLocalStream(this.localStream);
     }
@@ -217,9 +305,7 @@ export class CallManager {
     if (on) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: this.selectedCamera
-            ? { deviceId: { exact: this.selectedCamera }, width: { ideal: 1280 }, height: { ideal: 720 } }
-            : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+          video: this.videoConstraints(),
           audio: false,
         });
         const track = stream.getVideoTracks()[0];
@@ -231,7 +317,7 @@ export class CallManager {
         if (track) this.localStream.addTrack(track);
         this.cameraOn = true;
         this.audioOnly = false;
-        this.pushTracksToAll();
+        await this.pushTracksToAll();
         this.onLocalStream(this.localStream);
       } catch {
         this.onError('Camera permission is required.');
@@ -242,13 +328,7 @@ export class CallManager {
         t.stop();
         this.localStream?.removeTrack(t);
       });
-      for (const peer of this.peers.values()) {
-        peer.pc.getSenders().forEach((s) => {
-          if (s.track?.kind === 'video' && s.track.label !== 'screen') {
-            s.replaceTrack(null).catch(() => undefined);
-          }
-        });
-      }
+      await this.pushTracksToAll();
       this.cameraOn = false;
       this.onLocalStream(this.localStream);
     }
@@ -257,16 +337,17 @@ export class CallManager {
   async setScreen(on: boolean) {
     if (on) {
       try {
+        const fps = PLAN_LIMITS[this.plan].screenFps;
         const stream = await navigator.mediaDevices.getDisplayMedia({
-          video: { frameRate: 15 },
+          video: { frameRate: fps },
           audio: true,
         });
         this.screenStream = stream;
         this.screenOn = true;
         stream.getVideoTracks()[0]?.addEventListener('ended', () => {
-          this.setScreen(false);
+          void this.setScreen(false);
         });
-        this.pushTracksToAll();
+        await this.pushTracksToAll();
         this.onLocalStream(this.localStream);
       } catch {
         this.onError('Screen sharing was cancelled or is unavailable.');
@@ -274,16 +355,9 @@ export class CallManager {
       }
     } else {
       this.screenStream?.getTracks().forEach((t) => t.stop());
-      if (this.screenStream) {
-        for (const peer of this.peers.values()) {
-          for (const t of this.screenStream.getTracks()) {
-            const sender = peer.pc.getSenders().find((s) => s.track?.id === t.id);
-            if (sender) peer.pc.removeTrack(sender);
-          }
-        }
-      }
       this.screenStream = null;
       this.screenOn = false;
+      await this.pushTracksToAll();
     }
   }
 
@@ -327,7 +401,7 @@ export class CallManager {
         stream: p.stream,
         connectionState: p.pc.connectionState,
         audioEnabled: p.stream.getAudioTracks().some((t) => t.enabled && t.readyState === 'live'),
-        videoEnabled: p.stream.getVideoTracks().some((t) => t.enabled && t.readyState === 'live'),
+        videoEnabled: p.stream.getVideoTracks().some((t) => t.readyState === 'live'),
       });
     }
     this.onPeers(list);
@@ -356,11 +430,40 @@ export class CallManager {
           if (rtt > 0.4 || loss > 0.08) score = 1;
           else if (rtt > 0.2 || loss > 0.03) score = 2;
           this.onQuality(id, score);
+          void this.adaptBitrate(peer, score);
+          if (
+            score === 1 &&
+            (peer.pc.iceConnectionState === 'disconnected' || peer.pc.connectionState === 'disconnected')
+          ) {
+            void this.restartIce(peer);
+          }
         } catch {
           /* ignore */
         }
       }
     }, 4000);
+  }
+
+  private async adaptBitrate(peer: Peer, score: number) {
+    const cap = PLAN_LIMITS[this.plan].videoBitrate;
+    const max = score >= 3 ? cap : score === 2 ? Math.round(cap * 0.5) : Math.round(cap * 0.25);
+    for (const sender of peer.pc.getSenders()) {
+      if (sender.track?.kind !== 'video') continue;
+      try {
+        const params = sender.getParameters();
+        if (!params.encodings?.length) params.encodings = [{}];
+        let changed = false;
+        for (const enc of params.encodings) {
+          if (enc.maxBitrate !== max) {
+            enc.maxBitrate = max;
+            changed = true;
+          }
+        }
+        if (changed) await sender.setParameters(params);
+      } catch {
+        /* some browsers reject setParameters mid-call */
+      }
+    }
   }
 
   stopStats() {
@@ -372,9 +475,9 @@ export class CallManager {
 
   hangup() {
     this.stopStats();
-    this.setCamera(false);
-    this.setMicrophone(false);
-    this.setScreen(false);
+    void this.setCamera(false);
+    void this.setMicrophone(false);
+    void this.setScreen(false);
     for (const id of [...this.peers.keys()]) this.removePeer(id);
     this.localStream?.getTracks().forEach((t) => t.stop());
     this.localStream = null;

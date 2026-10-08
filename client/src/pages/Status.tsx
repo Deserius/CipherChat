@@ -68,7 +68,7 @@ export function ErrorPage() {
   return (
     <Shell kicker="Something went wrong" title={msg} body="You can go back and try again. No account was created.">
       <button className="btn btn-primary" onClick={() => nav('/')}>
-        Back to CipherRoom
+        Back to CipherChat
       </button>
     </Shell>
   );

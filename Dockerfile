@@ -1,4 +1,4 @@
-# CipherRoom — single-container build
+# CipherChat — single-container build
 # Serves the Vite client and the Node signaling server on PORT (default 3000).
 
 FROM node:20-alpine AS builder

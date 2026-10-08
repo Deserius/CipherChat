@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: cipherroom
+    name: cipherchat
     runtime: docker
     plan: starter
     healthCheckPath: /api/health
@@ -36,5 +36,5 @@ services:
 # Optional Valkey/Redis for a future multi-instance adapter. The default
 # single instance uses in-memory ephemeral state and does not require this.
 # databases:
-#   - name: cipherroom-valkey
+#   - name: cipherchat-valkey
 #     plan: starter

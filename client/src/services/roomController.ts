@@ -4,6 +4,7 @@ import { WsClient } from './wsClient';
 import { CallManager, listDevices } from '../webrtc/callManager';
 import { useSession, type ChatLine } from '../stores/session';
 import { notifyJoin } from './permissions';
+import { currentLimits, entitlementToken, getPlan } from './entitlement';
 
 const CHUNK = 48 * 1024;
 const EMOJIS = ['👍', '❤️', '😂', '🎉', '🔥', '👋', '✅', '👀'];
@@ -85,6 +86,7 @@ export class RoomController {
       roomCode: p.roomCode,
       createRandom: p.createRandom,
       sessionToken: token,
+      entitlement: entitlementToken(),
     });
   }
 
@@ -149,7 +151,7 @@ export class RoomController {
 
   async sendFile(file: File) {
     await this.ensureKey();
-    if (file.size > (useSession.getState().config?.maxFileBytes ?? 8_000_000)) {
+    if (file.size > currentLimits().maxFileBytes) {
       useSession.getState().set({ mediaError: 'File exceeds the maximum size.' });
       return;
     }
@@ -274,11 +276,11 @@ export class RoomController {
           iceServers: msg.iceServers,
         });
         try {
-          sessionStorage.setItem('cipherroom.session', msg.sessionToken);
+          sessionStorage.setItem('cipherchat.session', msg.sessionToken);
         } catch {
           /* private mode */
         }
-        this.call.configure(msg.participantId, msg.iceServers as RTCIceServer[]);
+        this.call.configure(msg.participantId, msg.iceServers as RTCIceServer[], getPlan());
         this.call.startStats();
         if (this.pendingStream) {
           this.call.attachExistingStream(this.pendingStream);

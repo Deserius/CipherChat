@@ -31,10 +31,10 @@ function LegalShell({ title, children }: { title: string; children: ReactNode })
 export function PrivacyPage() {
   return (
     <LegalShell title="Privacy Policy">
-      <p className="text-slate-500">Last updated: 7 September 2026. This is an informational policy for the CipherRoom software, not legal advice.</p>
-      <h2 className="pt-4 text-xl font-semibold text-white">What CipherRoom is</h2>
+      <p className="text-slate-500">Last updated: 7 September 2026. This is an informational policy for the CipherChat software, not legal advice.</p>
+      <h2 className="pt-4 text-xl font-semibold text-white">What CipherChat is</h2>
       <p>
-        CipherRoom is a privacy-first communication application. You can join a temporary room with a display name
+        CipherChat is a privacy-first communication application. You can join a temporary room with a display name
         and a short numeric room code. No account, email address, password, permanent username, profile, phone number,
         or social login is required for the core experience.
       </p>
@@ -55,7 +55,7 @@ export function PrivacyPage() {
       </p>
       <h2 className="pt-4 text-xl font-semibold text-white">When a room is destroyed</h2>
       <p>
-        After the last participant leaves (plus a short reconnect grace period), CipherRoom marks the room inactive,
+        After the last participant leaves (plus a short reconnect grace period), CipherChat marks the room inactive,
         stops message processing, deletes in-memory messages and membership, discards session tokens, and drops
         encryption keys held in the browser. Temporary files are never written to durable storage by the application.
       </p>
@@ -67,10 +67,19 @@ export function PrivacyPage() {
         order to establish WebRTC connectivity. If you configure Twilio, that provider processes phone numbers and SMS
         content according to its own policies.
       </p>
+      <h2 className="pt-4 text-xl font-semibold text-white">Paid plans (Stripe)</h2>
+      <p>
+        Optional Plus and Pro upgrades are billed by Stripe Checkout and the Stripe customer portal. CipherChat never
+        receives your card number, CVC, or bank account. Stripe may process an email address and payment metadata
+        under Stripe&apos;s own privacy policy. CipherChat keeps only a signed entitlement token on this device
+        (plan name, expiry, Stripe customer id) so limits can be applied. Chat content is still not stored. Cancel
+        or update payment methods in Stripe&apos;s portal.
+      </p>
       <h2 className="pt-4 text-xl font-semibold text-white">Cookies and local data</h2>
       <p>
-        CipherRoom does not use advertising cookies. A session token may be kept in <code>sessionStorage</code> so a
-        refresh can reconnect during the grace period. The Progressive Web App caches only static application assets,
+        CipherChat does not use advertising cookies. A session token may be kept in <code>sessionStorage</code> so a
+        refresh can reconnect during the grace period. A Plus/Pro entitlement token may be kept in{' '}
+        <code>localStorage</code> on this device only. The Progressive Web App caches only static application assets,
         never messages or room content.
       </p>
       <h2 className="pt-4 text-xl font-semibold text-white">Security practices</h2>
@@ -97,10 +106,10 @@ export function PrivacyPage() {
 export function TermsPage() {
   return (
     <LegalShell title="Terms of Service">
-      <p className="text-slate-500">Last updated: 7 September 2026. Informational terms for the CipherRoom software.</p>
+      <p className="text-slate-500">Last updated: 7 September 2026. Informational terms for the CipherChat software.</p>
       <h2 className="pt-4 text-xl font-semibold text-white">Acceptable use</h2>
       <p>
-        You may use CipherRoom for lawful, consensual communication. You must not use it to harass, abuse, exploit
+        You may use CipherChat for lawful, consensual communication. You must not use it to harass, abuse, exploit
         minors, distribute malware, conduct fraud, or violate applicable law.
       </p>
       <h2 className="pt-4 text-xl font-semibold text-white">Illegal content</h2>
@@ -111,7 +120,7 @@ export function TermsPage() {
       <h2 className="pt-4 text-xl font-semibold text-white">No accounts, no warranty of availability</h2>
       <p>
         The service is provided as-is. Rooms are temporary and may be destroyed because participants left, the process
-        restarted, an inactivity timer fired, or infrastructure failed. Do not use CipherRoom as a system of record.
+        restarted, an inactivity timer fired, or infrastructure failed. Do not use CipherChat as a system of record.
       </p>
       <h2 className="pt-4 text-xl font-semibold text-white">Security limitations</h2>
       <p>
@@ -120,8 +129,9 @@ export function TermsPage() {
       </p>
       <h2 className="pt-4 text-xl font-semibold text-white">Third-party services</h2>
       <p>
-        Optional Twilio, TURN, Redis, or hosting providers are operated by third parties under their own terms. The
-        core web messaging and WebRTC features work without Twilio.
+        Optional Twilio, TURN, Redis, Stripe, or hosting providers are operated by third parties under their own terms.
+        Core chat and WebRTC work without Twilio or Stripe. Paid Plus/Pro upgrades are processed by Stripe; CipherChat
+        does not store card numbers.
       </p>
       <h2 className="pt-4 text-xl font-semibold text-white">Your responsibilities</h2>
       <p>
@@ -131,7 +141,7 @@ export function TermsPage() {
       <h2 className="pt-4 text-xl font-semibold text-white">No responsibility for user conduct</h2>
       <p>
         {DEVELOPER} and {COMPANY} do not monitor rooms and accept no legal responsibility for how
-        CipherRoom is used. You are solely responsible for your communications, invitees, files, and
+        CipherChat is used. You are solely responsible for your communications, invitees, files, and
         compliance with applicable law. If you disagree, do not use the software.
       </p>
       <h2 className="pt-4 text-xl font-semibold text-white">Limitation of liability</h2>
@@ -139,7 +149,7 @@ export function TermsPage() {
         To the maximum extent permitted by law, {DEVELOPER} and {COMPANY} are not liable for lost
         messages, failed calls, unauthorized access resulting from shared room codes, user-generated
         content, misuse by any party, or any damages arising from use or inability to use this
-        software. CipherRoom is provided as-is, without warranties of any kind. © {COPYRIGHT_YEAR}{' '}
+        software. CipherChat is provided as-is, without warranties of any kind. © {COPYRIGHT_YEAR}{' '}
         {DEVELOPER}. See also the{' '}
         <Link className="text-cyan-glow hover:underline" to="/about">
           About &amp; developer

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   Copy,
   Check,
@@ -35,6 +35,7 @@ import {
 import type { PeerMedia } from '../webrtc/callManager';
 import { listDevices } from '../webrtc/callManager';
 import { InviteShare } from '../components/InviteShare';
+import { getPlan } from '../services/entitlement';
 
 export default function RoomPage() {
   const { code } = useParams();
@@ -131,6 +132,11 @@ function RoomShell({ expected }: { expected: string }) {
     if (ctrl.call.cameraOn) setTab('call');
   }, [ctrl]);
 
+  const remoteVideo = peers.some((p) => p.videoEnabled);
+  useEffect(() => {
+    if (cam || screen || remoteVideo) setTab('call');
+  }, [cam, screen, remoteVideo]);
+
   useEffect(() => {
     if (created) setInviteOpen(true);
   }, [created]);
@@ -174,20 +180,8 @@ function RoomShell({ expected }: { expected: string }) {
     }
   }
 
-  async function share() {
-    const url = inviteUrl(expected);
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: 'CipherRoom invite', text: `Join CipherRoom ${expected}`, url });
-        return;
-      } catch {
-        /* cancelled */
-      }
-    }
-    await copy('link');
-  }
-
   const showCall = tab === 'call' || cam || screen || peers.some((p) => p.videoEnabled);
+  const plan = getPlan();
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -206,6 +200,18 @@ function RoomShell({ expected }: { expected: string }) {
           <span className="hidden items-center gap-1 rounded-full border border-mint/30 bg-mint/10 px-2 py-1 text-mint sm:inline-flex">
             <Shield className="h-3 w-3" /> Encrypted session
           </span>
+          {plan === 'free' ? (
+            <Link
+              to="/plus"
+              className="hidden rounded-full border border-cyan-glow/30 px-2 py-1 text-cyan-glow hover:bg-cyan-glow/10 sm:inline-flex"
+            >
+              Plus
+            </Link>
+          ) : (
+            <span className="hidden rounded-full border border-violet-glow/30 px-2 py-1 text-violet-glow sm:inline-flex">
+              {plan === 'pro' ? 'Pro' : 'Plus'}
+            </span>
+          )}
           <span className="rounded-full border border-white/10 px-2 py-1 text-slate-300">
             {participants.length} {participants.length === 1 ? 'participant' : 'participants'}
           </span>
@@ -465,8 +471,15 @@ function VideoGrid({
     <div className={`grid flex-1 gap-3 ${shown.length === 1 ? 'grid-cols-1' : shown.length === 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'}`}>
       {shown.map((t) => (
         <div key={t.id} className="video-tile group">
-          {t.stream && (t.camera || t.stream.getVideoTracks().length > 0) ? (
-            <VideoEl stream={t.stream} muted={t.self} />
+          {t.stream && t.stream.getVideoTracks().some((tr) => tr.readyState !== 'ended') ? (
+            <VideoEl
+              stream={t.stream}
+              muted={t.self}
+              trackKey={t.stream
+                .getTracks()
+                .map((tr) => tr.id + tr.readyState)
+                .join(',')}
+            />
           ) : (
             <div className="flex h-full items-center justify-center">
               <div
@@ -499,11 +512,29 @@ function VideoGrid({
   );
 }
 
-function VideoEl({ stream, muted }: { stream: MediaStream; muted?: boolean }) {
+function VideoEl({ stream, muted, trackKey }: { stream: MediaStream; muted?: boolean; trackKey?: string }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
-    if (ref.current) ref.current.srcObject = stream;
-  }, [stream]);
+    const el = ref.current;
+    if (!el) return;
+    el.srcObject = stream;
+    const play = () => {
+      el.play().catch(() => undefined);
+    };
+    const refresh = () => {
+      el.srcObject = stream;
+      play();
+    };
+    el.addEventListener('loadedmetadata', play);
+    stream.addEventListener('addtrack', refresh);
+    stream.addEventListener('removetrack', refresh);
+    play();
+    return () => {
+      el.removeEventListener('loadedmetadata', play);
+      stream.removeEventListener('addtrack', refresh);
+      stream.removeEventListener('removetrack', refresh);
+    };
+  }, [stream, trackKey]);
   return <video ref={ref} autoPlay playsInline muted={muted} />;
 }
 

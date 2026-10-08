@@ -22,10 +22,10 @@ export function Logo({ compact = false }: { compact?: boolean }) {
     <div className="flex items-center gap-2.5">
       <Mark size={compact ? 28 : 36} />
       <div className="leading-tight">
-        <div className="font-semibold tracking-wide text-white">CipherRoom</div>
+        <div className="font-semibold tracking-wide text-white">CipherChat</div>
         {!compact && (
           <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-glow/70">
-            ephemeral link
+            ephemeral chat
           </div>
         )}
       </div>

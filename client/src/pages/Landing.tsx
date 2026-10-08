@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
+import { NameHint } from '../components/NameHint';
 import { PermissionGate, type GateResult } from '../components/PermissionGate';
 import { SiteFooter, DEVELOPER, COMPANY, COPYRIGHT_YEAR } from '../components/SiteFooter';
 import { getController } from '../services/roomController';
@@ -110,6 +111,9 @@ export default function Landing() {
       <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
         <Logo />
         <nav className="flex items-center gap-4 text-sm text-slate-400">
+          <Link className="hover:text-white" to="/plus">
+            Plus
+          </Link>
           <Link className="hover:text-white" to="/about">
             About
           </Link>
@@ -191,16 +195,20 @@ export default function Landing() {
             <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-slate-400">
               Your name
             </label>
-            <input
-              className={`field mb-4 ${shakeName ? 'shake' : ''}`}
-              placeholder="Deserius"
-              maxLength={32}
-              autoComplete="nickname"
-              autoFocus={isInvite}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              aria-required="true"
-            />
+            <div className="relative mb-4">
+              {!name && <NameHint />}
+              <input
+                className={`field ${shakeName ? 'shake' : ''}`}
+                placeholder=""
+                maxLength={32}
+                autoComplete="nickname"
+                autoFocus={isInvite}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                aria-required="true"
+                aria-label="Your name"
+              />
+            </div>
 
             {isInvite ? (
               <p className="mb-5 font-mono text-sm tracking-[0.2em] text-cyan-100">
@@ -271,7 +279,7 @@ export default function Landing() {
             <ol className="grid gap-4 md:grid-cols-3">
               <Step n="01" title="Enter" body="Pick a display name and a 4–10 digit room code — or generate a random one." />
               <Step n="02" title="Allow devices" body="Grant camera and mic. Share a QR or link so others join in one tap." />
-              <Step n="03" title="Vanish" body="When the last person leaves, CipherRoom destroys room state, keys, and files." />
+              <Step n="03" title="Vanish" body="When the last person leaves, CipherChat destroys room state, keys, and files." />
             </ol>
             <p className="mt-6 max-w-3xl text-sm text-slate-500">
               Designed for minimal data retention. Hosting providers and networks may still generate technical logs outside this application. Read the{' '}
@@ -293,7 +301,7 @@ export default function Landing() {
             <div className="font-mono text-[11px] uppercase tracking-[0.22em] text-cyan-glow">Creator</div>
             <h3 className="mt-2 text-2xl font-semibold text-white">{DEVELOPER}</h3>
             <p className="mt-3 text-sm leading-7 text-slate-400">
-              CipherRoom is an original work by {DEVELOPER}. The product is published by{' '}
+              CipherChat is an original work by {DEVELOPER}. The product is published by{' '}
               <span className="text-slate-200">{COMPANY}</span>. © {COPYRIGHT_YEAR} {DEVELOPER}.
             </p>
             <Link className="mt-4 inline-flex text-sm text-cyan-glow hover:underline" to="/about">

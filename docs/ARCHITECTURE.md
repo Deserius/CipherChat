@@ -1,4 +1,4 @@
-# CipherRoom architecture
+# CipherChat architecture
 
 ```
 ┌──────────────┐     HTTPS / WSS      ┌──────────────────────────┐

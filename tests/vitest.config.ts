@@ -15,7 +15,7 @@ export default defineConfig({
     include: ['tests/**/*.test.ts', 'server/**/*.test.ts'],
     testTimeout: 15000,
     env: {
-      CIPHERROOM_NO_LISTEN: '1',
+      CIPHERCHAT_NO_LISTEN: '1',
       VITEST: 'true',
     },
   },

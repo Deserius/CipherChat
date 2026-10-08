@@ -66,7 +66,7 @@ const initial: Omit<SessionState, 'set' | 'reset' | 'addMessage' | 'patchMessage
   created: false,
   connection: 'idle',
   cryptoReady: false,
-  banner: 'Temporary encrypted room — messages disappear when the session ends.',
+  banner: 'Temporary encrypted chat — messages disappear when the session ends.',
 };
 
 export const useSession = create<SessionState>((set, get) => ({

@@ -1,6 +1,6 @@
-/* CipherRoom service worker — caches ONLY static application assets.
+/* CipherChat service worker — caches ONLY static application assets.
    Never cache messages, WebSocket traffic, or room content. */
-const CACHE = 'cipherroom-shell-v1';
+const CACHE = 'cipherchat-shell-v1';
 const SHELL = ['/', '/index.html', '/manifest.json', '/favicon.svg', '/icon-192.png', '/icon-512.png', '/offline.html'];
 
 self.addEventListener('install', (event) => {

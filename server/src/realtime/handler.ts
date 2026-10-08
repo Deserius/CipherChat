@@ -5,6 +5,7 @@ import { config, iceServers, publicConfig } from '../config.ts';
 import { RoomManager } from '../rooms/manager.ts';
 import { parseRoomCode, sanitizeDisplayName, isAllowedEmoji, isSafeClientId } from '../security/validation.ts';
 import { hit } from '../security/rateLimit.ts';
+import { limitsFor, verifyEntitlement } from '../billing/entitlement.ts';
 
 const MAX_SIGNAL_BYTES = 32_768;
 const MAX_CIPHERTEXT_BYTES = 24_000;
@@ -162,12 +163,21 @@ function onJoin(
     }
   }
 
+  const entitlement = verifyEntitlement(typeof msg.entitlement === 'string' ? msg.entitlement : undefined);
+  const plan = entitlement?.plan ?? 'free';
+  const limits = limitsFor(plan);
+
   const { room, participant, created } = manager.joinOrCreate({
     name,
     roomCode,
     createRandom: Boolean(msg.createRandom) && !roomCode,
     sessionToken: typeof msg.sessionToken === 'string' ? msg.sessionToken : undefined,
     ws,
+    plan,
+    maxParticipants: limits.maxParticipants,
+    holdMs: limits.holdMs,
+    maxLifetimeMs: limits.maxLifetimeMs,
+    maxFileBytes: limits.maxFileBytes,
   });
 
   ctx.authed = true;
@@ -318,7 +328,8 @@ function onFileMeta(
 ) {
   const { room, p } = requireRoom(manager, ctx);
   if (!manager.allowMessage(p)) return;
-  if (typeof msg.size !== 'number' || msg.size <= 0 || msg.size > config.maxFileBytes) {
+  const maxFile = p.maxFileBytes || config.maxFileBytes;
+  if (typeof msg.size !== 'number' || msg.size <= 0 || msg.size > maxFile) {
     if (p.ws) {
       safeSend(p.ws, {
         type: 'error',

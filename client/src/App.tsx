@@ -3,6 +3,8 @@ import Landing from './pages/Landing';
 import RoomPage from './pages/Room';
 import { PrivacyPage, TermsPage } from './pages/Legal';
 import AboutPage from './pages/About';
+import PlusPage from './pages/Plus';
+import PlusSuccessPage from './pages/PlusSuccess';
 import { DestroyedPage, ErrorPage, LeftPage } from './pages/Status';
 
 function JoinRedirect() {
@@ -19,6 +21,8 @@ export default function App() {
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/about" element={<AboutPage />} />
+      <Route path="/plus" element={<PlusPage />} />
+      <Route path="/plus/success" element={<PlusSuccessPage />} />
       <Route path="/left" element={<LeftPage />} />
       <Route path="/destroyed" element={<DestroyedPage />} />
       <Route path="/error" element={<ErrorPage />} />

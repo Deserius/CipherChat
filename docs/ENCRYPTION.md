@@ -1,6 +1,6 @@
 # Encryption model
 
-CipherRoom uses established browser and transport cryptography. It does not invent algorithms.
+CipherChat uses established browser and transport cryptography. It does not invent algorithms.
 
 ## Transport
 

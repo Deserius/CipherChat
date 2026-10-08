@@ -13,6 +13,7 @@ export class WsClient {
   private shouldReconnect = false;
   private attempt = 0;
   private pingTimer: number | null = null;
+  private outbound: ClientMessage[] = [];
   onMessage: (msg: ServerMessage) => void = () => {};
   onStatus: (s: WsStatus) => void = () => {};
 
@@ -34,6 +35,7 @@ export class WsClient {
       this.attempt = 0;
       this.setStatus('open');
       this.startPing();
+      this.flush();
     };
     ws.onmessage = (ev) => {
       try {
@@ -54,13 +56,25 @@ export class WsClient {
   }
 
   send(msg: ClientMessage) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return false;
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      if (msg.type !== 'ping' && msg.type !== 'heartbeat') {
+        this.outbound.push(msg);
+        if (this.outbound.length > 80) this.outbound.shift();
+      }
+      return false;
+    }
     this.ws.send(JSON.stringify(msg));
     return true;
   }
 
+  private flush() {
+    const pending = this.outbound.splice(0);
+    for (const msg of pending) this.send(msg);
+  }
+
   disconnect() {
     this.shouldReconnect = false;
+    this.outbound = [];
     this.stopPing();
     try {
       this.ws?.close(1000, 'client-leave');
@@ -72,7 +86,7 @@ export class WsClient {
 
   private scheduleReconnect() {
     this.attempt += 1;
-    const delay = Math.min(10_000, 400 * 2 ** Math.min(this.attempt, 5));
+    const delay = Math.min(8_000, 250 * 2 ** Math.min(this.attempt, 5));
     window.setTimeout(() => {
       if (this.shouldReconnect) this.open();
     }, delay);
@@ -82,7 +96,7 @@ export class WsClient {
     this.stopPing();
     this.pingTimer = window.setInterval(() => {
       this.send({ type: 'ping', ts: Date.now() });
-    }, 20_000);
+    }, 15_000);
   }
 
   private stopPing() {

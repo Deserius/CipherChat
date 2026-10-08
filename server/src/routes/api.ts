@@ -12,7 +12,7 @@ export function createApi(manager: RoomManager) {
     const s = manager.stats();
     res.json({
       status: 'ok',
-      service: 'cipherroom',
+      service: 'cipherchat',
       uptimeSec: Math.round(process.uptime()),
       rooms: s.rooms,
       participants: s.participants,
@@ -21,7 +21,7 @@ export function createApi(manager: RoomManager) {
         heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
         rssMb: Math.round(mem.rss / 1024 / 1024),
       },
-      providers: communicationHub.status(),
+      providers: { ...communicationHub.status(), stripe: Boolean(config.stripeSecretKey) },
       version: '1.0.0',
     });
   });
@@ -68,7 +68,7 @@ export function createApi(manager: RoomManager) {
     const link = `${config.appUrl.replace(/\/$/, '')}/r/${parsed.data.roomCode}`;
     const result = await communicationHub.twilio.sms({
       to: parsed.data.to,
-      body: `You're invited to a CipherRoom. Open ${link} — the room is temporary and disappears when everyone leaves.`,
+      body: `You're invited to a CipherChat. Open ${link} — the room is temporary and disappears when everyone leaves.`,
     });
     if ('error' in result) {
       res.status(502).json({ error: result.error });

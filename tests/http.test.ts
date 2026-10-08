@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createServer } from '../server/src/index.ts';
 
-process.env.CIPHERROOM_NO_LISTEN = '1';
+process.env.CIPHERCHAT_NO_LISTEN = '1';
 
 const { app, server, manager } = createServer();
 

@@ -12,7 +12,7 @@
 
 ## Room codes are identifiers
 
-A 4–10 digit code is guessable in principle. CipherRoom therefore:
+A 4–10 digit code is guessable in principle. CipherChat therefore:
 
 - only keeps rooms that currently exist (occupied + short grace)
 - rate-limits joins and creates, with temporary lockouts
@@ -23,7 +23,7 @@ Do not treat the number itself as a password.
 
 ## Headers and cookies
 
-CipherRoom does not use authentication cookies. Session tokens live in memory and `sessionStorage`. `SameSite` cookie rules are therefore not the primary control; origin checks on the WebSocket upgrade are.
+CipherChat does not use authentication cookies. Session tokens live in memory and `sessionStorage`. `SameSite` cookie rules are therefore not the primary control; origin checks on the WebSocket upgrade are.
 
 ## Production checklist
 

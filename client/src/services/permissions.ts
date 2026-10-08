@@ -107,7 +107,7 @@ export function notifyJoin(name: string, room: string) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   if (document.visibilityState === 'visible') return;
   try {
-    new Notification(`${name} joined CipherRoom ${room}`, {
+    new Notification(`${name} joined CipherChat ${room}`, {
       body: 'Open the tab to continue the conversation.',
       silent: true,
     });

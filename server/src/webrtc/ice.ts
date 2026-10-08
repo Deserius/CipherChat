@@ -12,7 +12,7 @@ const OPEN_RELAY_SECRET = 'openrelayprojectsecret';
 
 function turnRestCredential(secret: string, ttlSec = 6 * 3600) {
   const expiry = Math.floor(Date.now() / 1000) + ttlSec;
-  const username = `${expiry}:cipherroom`;
+  const username = `${expiry}:cipherchat`;
   const credential = createHmac('sha1', secret).update(username).digest('base64');
   return { username, credential };
 }
@@ -32,6 +32,8 @@ export function defaultIceServers(extra?: {
         'stun:stun.l.google.com:19302',
         'stun:stun1.l.google.com:19302',
         'stun:stun2.l.google.com:19302',
+        'stun:stun3.l.google.com:19302',
+        'stun:stun4.l.google.com:19302',
         'stun:stun.stunprotocol.org:3478',
       ],
     },
