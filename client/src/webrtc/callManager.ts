@@ -1,7 +1,7 @@
 import type { WsClient } from '../services/wsClient';
 import { FALLBACK_ICE, rtcConfiguration } from './rtcConfig';
 import type { PlanId } from '@shared/billing';
-import { PLAN_LIMITS } from '@shared/billing';
+import { limitsForPlan } from '@shared/billing';
 
 export interface PeerMedia {
   id: string;
@@ -258,7 +258,7 @@ export class CallManager {
   }
 
   private videoConstraints(): MediaTrackConstraints {
-    const hd = PLAN_LIMITS[this.plan].hdVideo;
+    const hd = limitsForPlan(this.plan).hdVideo;
     const base: MediaTrackConstraints = {
       width: { ideal: hd ? 1920 : 1280 },
       height: { ideal: hd ? 1080 : 720 },
@@ -337,7 +337,7 @@ export class CallManager {
   async setScreen(on: boolean) {
     if (on) {
       try {
-        const fps = PLAN_LIMITS[this.plan].screenFps;
+        const fps = limitsForPlan(this.plan).screenFps;
         const stream = await navigator.mediaDevices.getDisplayMedia({
           video: { frameRate: fps },
           audio: true,
@@ -445,7 +445,7 @@ export class CallManager {
   }
 
   private async adaptBitrate(peer: Peer, score: number) {
-    const cap = PLAN_LIMITS[this.plan].videoBitrate;
+    const cap = limitsForPlan(this.plan).videoBitrate;
     const max = score >= 3 ? cap : score === 2 ? Math.round(cap * 0.5) : Math.round(cap * 0.25);
     for (const sender of peer.pc.getSenders()) {
       if (sender.track?.kind !== 'video') continue;

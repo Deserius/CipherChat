@@ -4,7 +4,7 @@ import { WsClient } from './wsClient';
 import { CallManager, listDevices } from '../webrtc/callManager';
 import { useSession, type ChatLine } from '../stores/session';
 import { notifyJoin } from './permissions';
-import { currentLimits, entitlementToken, getPlan } from './entitlement';
+import { currentLimits, entitlementToken, getPlan, passCode } from './entitlement';
 
 const CHUNK = 48 * 1024;
 const EMOJIS = ['👍', '❤️', '😂', '🎉', '🔥', '👋', '✅', '👀'];
@@ -87,6 +87,7 @@ export class RoomController {
       createRandom: p.createRandom,
       sessionToken: token,
       entitlement: entitlementToken(),
+      passCode: passCode(),
     });
   }
 

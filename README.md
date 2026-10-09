@@ -20,7 +20,9 @@ When the last participant leaves, the room is destroyed. Messages are not writte
 - Copy room code / invite link (`/r/{code}`)
 - Automatic room destruction and session expiry
 - Optional Twilio SMS invites (web features work without it)
-- Optional CipherChat Plus / Pro via Stripe Checkout (no CipherChat account; card data stays with Stripe)
+- Optional CipherChat Plus / Pro and **Party passes** (anonymous `CCHAT-` codes, Stripe Checkout or test-card sandbox)
+- First-party house ads on marketing pages only (never inside a room)
+- In-app Help (`/help`)
 - PWA (static shell only — never caches room content)
 - No analytics pixels or advertising trackers
 - Helmet / CSP / rate limits / origin checks
@@ -39,7 +41,7 @@ WebRTC mesh (DTLS/SRTP) ── optional TURN (coturn)
                          ── optional Twilio PSTN/SMS
 ```
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/ENCRYPTION.md](docs/ENCRYPTION.md), [docs/SECURITY.md](docs/SECURITY.md), and [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/BILLING.md](docs/BILLING.md), [docs/ENCRYPTION.md](docs/ENCRYPTION.md), [docs/SECURITY.md](docs/SECURITY.md), and [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
 
 ## Security model (short)
 

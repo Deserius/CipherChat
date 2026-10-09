@@ -45,6 +45,8 @@ export interface JoinMessage {
   sessionToken?: string;
   /** HMAC-signed Stripe entitlement. Opaque to other peers. */
   entitlement?: string;
+  /** Anonymous recovery / party pass (CCHAT-XXXX-XXXX-XXXX). */
+  passCode?: string;
 }
 
 export interface LeaveMessage {
@@ -306,6 +308,8 @@ export interface PublicConfig {
   stunConfigured: boolean;
   turnConfigured: boolean;
   billingEnabled: boolean;
+  billingSandbox?: boolean;
+  ads?: { house: boolean; adsense: boolean; ethicalads: boolean };
 }
 
 export interface RTCIceServerLike {

@@ -12,6 +12,9 @@ export function SiteFooter() {
           <Link className="hover:text-white" to="/plus">
             Plus
           </Link>
+          <Link className="hover:text-white" to="/help">
+            Help
+          </Link>
           <Link className="hover:text-white" to="/about">
             About & developer
           </Link>

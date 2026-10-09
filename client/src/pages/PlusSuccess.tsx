@@ -8,14 +8,20 @@ import { saveEntitlement } from '../services/entitlement';
 export default function PlusSuccessPage() {
   const [params] = useSearchParams();
   const sessionId = params.get('session_id');
-  const [state, setState] = useState<'working' | 'ok' | 'err'>('working');
-  const [plan, setPlan] = useState<string>('plus');
-  const [message, setMessage] = useState('Confirming payment with Stripe…');
+  const preCode = params.get('code');
+  const prePlan = params.get('plan');
+  const [state, setState] = useState<'working' | 'ok' | 'err'>(preCode ? 'ok' : 'working');
+  const [plan, setPlan] = useState(prePlan ?? 'plus');
+  const [passCode, setPassCode] = useState(preCode ?? '');
+  const [message, setMessage] = useState(
+    preCode ? 'Save this pass. It is how you unlock premium without an account.' : 'Confirming payment…',
+  );
 
   useEffect(() => {
     if (!sessionId) {
+      if (preCode) return;
       setState('err');
-      setMessage('Missing Stripe session. Return to Plus and try again.');
+      setMessage('Missing session. Return to Plus and try again.');
       return;
     }
     let cancelled = false;
@@ -30,28 +36,34 @@ export default function PlusSuccessPage() {
         if (cancelled) return;
         if (!res.ok || !data.token) {
           setState('err');
-          setMessage(data.error ?? 'Stripe has not marked this payment complete yet.');
+          setMessage(data.error ?? 'Payment is not complete yet.');
           return;
         }
         saveEntitlement({
           token: data.token,
           plan: data.plan,
           expiresAt: data.expiresAt,
+          passCode: data.passCode,
+          passId: data.passId,
+          kind: data.kind,
+          seats: data.seats,
+          roomCode: data.roomCode,
         });
         setPlan(data.plan);
+        if (data.passCode) setPassCode(data.passCode);
         setState('ok');
         setMessage('Entitlement saved on this device. No CipherChat account was created.');
       } catch {
         if (!cancelled) {
           setState('err');
-          setMessage('Network error confirming the Stripe session.');
+          setMessage('Network error confirming the session.');
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [sessionId]);
+  }, [sessionId, preCode]);
 
   return (
     <div className="min-h-dvh">
@@ -65,15 +77,27 @@ export default function PlusSuccessPage() {
           {state === 'working' && <Loader2 className="mx-auto h-10 w-10 animate-spin text-cyan-glow" />}
           {state === 'ok' && <Sparkles className="mx-auto h-10 w-10 text-mint" />}
           <h1 className="mt-4 text-2xl font-semibold text-white">
-            {state === 'ok' ? `${plan === 'pro' ? 'Pro' : 'Plus'} is live` : 'Finishing checkout'}
+            {state === 'ok' ? `${label(plan)} is live` : 'Finishing checkout'}
           </h1>
           <p className="mt-3 text-sm text-slate-400">{message}</p>
+          {passCode && (
+            <div className="mt-5">
+              <div className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Anonymous pass — save this</div>
+              <div className="mt-2 break-all font-mono text-xl tracking-[0.14em] text-cyan-glow">{passCode}</div>
+              <button
+                className="btn btn-ghost mt-3 w-full"
+                onClick={() => void navigator.clipboard.writeText(passCode)}
+              >
+                Copy pass code
+              </button>
+            </div>
+          )}
           <div className="mt-6 flex justify-center gap-3">
             <Link className="btn btn-primary" to="/">
-              Create a room
+              Open a room
             </Link>
             <Link className="btn btn-ghost" to="/plus">
-              Plan details
+              Plans
             </Link>
           </div>
         </div>
@@ -81,4 +105,10 @@ export default function PlusSuccessPage() {
       <SiteFooter />
     </div>
   );
+}
+
+function label(plan: string) {
+  if (plan === 'pro') return 'Pro';
+  if (plan === 'party') return 'Party pass';
+  return 'Plus';
 }

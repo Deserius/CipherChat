@@ -1,0 +1,33 @@
+{
+  "passes": [
+    {
+      "id": "6fbdbb7b43d56d88",
+      "hash": "e4ba1fd1b038fd565e6bce3613ec65cb2dc415b5533e3fc44d41c0f3973dcac3",
+      "kind": "party",
+      "plan": "party",
+      "seats": 8,
+      "peakJoins": 0,
+      "durationMs": 7200000,
+      "createdAt": 1791503618688,
+      "expiresAt": 1791510818688,
+      "amountPaidCents": 600,
+      "refundedCents": 0,
+      "revoked": false
+    },
+    {
+      "id": "32a78bd0850ee15a",
+      "hash": "f4200f83db63a0410431d2efaf0ec8d5ba205a7e71c0e39516ddd6232e96c7cb",
+      "kind": "party",
+      "plan": "party",
+      "seats": 8,
+      "peakJoins": 0,
+      "durationMs": 7200000,
+      "createdAt": 1791503618726,
+      "expiresAt": 1791510818726,
+      "stripeSessionId": "sandbox_ord_311da705c0bbb4e1",
+      "amountPaidCents": 600,
+      "refundedCents": 0,
+      "revoked": false
+    }
+  ]
+}

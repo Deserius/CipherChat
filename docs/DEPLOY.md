@@ -25,12 +25,14 @@ curl http://localhost:3000/api/health
    - `NODE_ENV` = `production`
    - optional TURN and Twilio secrets as **secret** env vars
 4. Health check path: `/api/health`
-5. Optional Stripe (Plus/Pro):
-   - `STRIPE_SECRET_KEY` = `sk_live_…` or `sk_test_…`
-   - `STRIPE_WEBHOOK_SECRET` = `whsec_…` (endpoint `https://<host>/api/billing/webhook`)
-   - optional `STRIPE_PRICE_PLUS_MONTHLY` / `_YEARLY` / `STRIPE_PRICE_PRO_*`
+5. Billing (see [BILLING.md](BILLING.md)):
+   - For real Stripe test mode: `STRIPE_SECRET_KEY=sk_test_…` from https://dashboard.stripe.com/test/apikeys
+   - Webhook `https://<host>/api/billing/webhook` + `STRIPE_WEBHOOK_SECRET`
+   - Without keys, `BILLING_SANDBOX=true` accepts Stripe test card `4242 4242 4242 4242`
    - `ENTITLEMENT_SECRET` = long random string
-   - `APP_URL` must be the public HTTPS origin so Checkout success URLs work
+   - `APP_URL` = public HTTPS origin
+   - Persist `data/passes.json` (anonymous pass hashes)
+6. Optional ads: `HOUSE_ADS=true` (default). `ADSENSE_CLIENT` / `ETHICALADS_SITE` only if you want third-party ads on marketing pages.
 
 The SPA, REST API, and WebSocket endpoint share one service so Render’s reverse proxy can keep them on the same origin (`wss://…/ws`).
 

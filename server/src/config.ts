@@ -70,6 +70,10 @@ export const config = {
   stripePriceProMonthly: process.env.STRIPE_PRICE_PRO_MONTHLY ?? '',
   stripePriceProYearly: process.env.STRIPE_PRICE_PRO_YEARLY ?? '',
   entitlementSecret: process.env.ENTITLEMENT_SECRET ?? '',
+  billingSandbox: boolEnv('BILLING_SANDBOX', !process.env.STRIPE_SECRET_KEY),
+  houseAds: boolEnv('HOUSE_ADS', true),
+  adsenseClient: process.env.ADSENSE_CLIENT ?? '',
+  ethicalAdsSite: process.env.ETHICALADS_SITE ?? '',
 };
 
 export function iceServers() {
@@ -94,6 +98,12 @@ export function publicConfig() {
     ),
     stunConfigured: config.stunServers.length > 0,
     turnConfigured: Boolean(config.turnServer && config.turnUsername && config.turnPassword),
-    billingEnabled: Boolean(config.stripeSecretKey),
+    billingEnabled: Boolean(config.stripeSecretKey) || config.billingSandbox,
+    billingSandbox: config.billingSandbox && !config.stripeSecretKey,
+    ads: {
+      house: config.houseAds,
+      adsense: Boolean(config.adsenseClient),
+      ethicalads: Boolean(config.ethicalAdsSite),
+    },
   };
 }

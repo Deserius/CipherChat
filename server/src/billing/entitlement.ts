@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { PLAN_LIMITS, type PlanId } from '../../../shared/billing.ts';
+import { limitsForPlan, type PlanId } from '../../../shared/billing.ts';
 import { config } from '../config.ts';
 
 export interface Entitlement {
@@ -8,6 +8,10 @@ export interface Entitlement {
   sub: string;
   exp: number;
   iat: number;
+  kind?: 'sub' | 'party';
+  seats?: number;
+  durationMs?: number;
+  passId?: string;
 }
 
 function secret(): string {
@@ -27,6 +31,10 @@ export function issueEntitlement(input: {
   plan: Exclude<PlanId, 'free'>;
   customerId: string;
   expiresAt: number;
+  kind?: 'sub' | 'party';
+  seats?: number;
+  durationMs?: number;
+  passId?: string;
 }): string {
   const body: Entitlement = {
     v: 1,
@@ -34,6 +42,10 @@ export function issueEntitlement(input: {
     sub: input.customerId,
     exp: Math.floor(input.expiresAt / 1000),
     iat: Math.floor(Date.now() / 1000),
+    kind: input.kind,
+    seats: input.seats,
+    durationMs: input.durationMs,
+    passId: input.passId,
   };
   const payload = b64url(JSON.stringify(body));
   return `${payload}.${sign(payload)}`;
@@ -52,7 +64,7 @@ export function verifyEntitlement(token: string | undefined | null): Entitlement
   try {
     const body = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Entitlement;
     if (body.v !== 1) return null;
-    if (body.plan !== 'plus' && body.plan !== 'pro') return null;
+    if (body.plan !== 'plus' && body.plan !== 'pro' && body.plan !== 'party') return null;
     if (!body.sub || typeof body.sub !== 'string') return null;
     if (body.exp * 1000 < Date.now() - 60_000) return null;
     return body;
@@ -61,6 +73,6 @@ export function verifyEntitlement(token: string | undefined | null): Entitlement
   }
 }
 
-export function limitsFor(plan: PlanId | undefined) {
-  return PLAN_LIMITS[plan && plan in PLAN_LIMITS ? plan : 'free'];
+export function limitsFor(plan: PlanId | undefined, party?: { seats: number; durationMs: number }) {
+  return limitsForPlan(plan && plan !== 'free' ? plan : 'free', party);
 }

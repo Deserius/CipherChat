@@ -21,6 +21,7 @@ import {
   Settings2,
   X,
   Smile,
+  CircleHelp,
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { useSession, type ChatLine } from '../stores/session';
@@ -35,6 +36,7 @@ import {
 import type { PeerMedia } from '../webrtc/callManager';
 import { listDevices } from '../webrtc/callManager';
 import { InviteShare } from '../components/InviteShare';
+import { VideoGrid, QualityBars } from '../components/VideoGrid';
 import { getPlan } from '../services/entitlement';
 
 export default function RoomPage() {
@@ -88,6 +90,7 @@ function Connecting({ title, subtitle }: { title: string; subtitle: string }) {
 }
 
 function RoomShell({ expected }: { expected: string }) {
+  const nav = useNavigate();
   const ctrl = getController();
   const [tab, setTab] = useState<'chat' | 'call' | 'people'>('chat');
   const [peers, setPeers] = useState<PeerMedia[]>([]);
@@ -184,7 +187,7 @@ function RoomShell({ expected }: { expected: string }) {
   const plan = getPlan();
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="flex h-dvh min-h-dvh flex-col overflow-hidden">
       <header className="glass sticky top-0 z-20 flex items-center justify-between gap-3 rounded-none border-x-0 border-t-0 px-3 py-2.5 sm:px-5">
         <Logo compact />
         <div className="flex min-w-0 flex-1 flex-col items-center">
@@ -240,9 +243,9 @@ function RoomShell({ expected }: { expected: string }) {
         </div>
       )}
 
-      <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-3 p-3 sm:p-5 lg:flex-row">
+      <div className="mx-auto flex w-full max-w-7xl min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2 sm:p-4 lg:flex-row">
         {(tab === 'call' || (showCall && tab !== 'people')) && (
-          <section className={`${tab === 'chat' ? 'hidden lg:flex' : 'flex'} min-h-[240px] flex-1 flex-col`}>
+          <section className={`${tab === 'chat' ? 'hidden lg:flex' : 'flex'} min-h-0 flex-1 flex-col`}>
             <VideoGrid
               selfId={participantId}
               selfName={name}
@@ -291,6 +294,9 @@ function RoomShell({ expected }: { expected: string }) {
           </Control>
           <Control label="Invite" onClick={() => setInviteOpen(true)}>
             <Link2 className="h-5 w-5" />
+          </Control>
+          <Control label="Help" onClick={() => nav('/help')}>
+            <CircleHelp className="h-5 w-5" />
           </Control>
           <Control label="Settings" onClick={() => setSettingsOpen(true)}>
             <Settings2 className="h-5 w-5" />
@@ -431,124 +437,6 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
         {children}
       </div>
     </div>
-  );
-}
-
-function VideoGrid({
-  selfId,
-  selfName,
-  localStream,
-  cameraOn,
-  peers,
-  participants,
-  quality,
-  spotlight,
-  onSpotlight,
-}: {
-  selfId: string;
-  selfName: string;
-  localStream: MediaStream | null;
-  cameraOn: boolean;
-  peers: PeerMedia[];
-  participants: { id: string; name: string; camera: boolean; microphone: boolean }[];
-  quality: Record<string, number>;
-  spotlight: string | null;
-  onSpotlight: (id: string | null) => void;
-}) {
-  const tiles = [
-    { id: selfId, name: selfName, stream: localStream, self: true, camera: cameraOn },
-    ...peers.map((p) => ({
-      id: p.id,
-      name: participants.find((x) => x.id === p.id)?.name ?? 'Guest',
-      stream: p.stream,
-      self: false,
-      camera: p.videoEnabled,
-      state: p.connectionState,
-    })),
-  ];
-  const shown = spotlight ? tiles.filter((t) => t.id === spotlight) : tiles;
-  return (
-    <div className={`grid flex-1 gap-3 ${shown.length === 1 ? 'grid-cols-1' : shown.length === 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'}`}>
-      {shown.map((t) => (
-        <div key={t.id} className="video-tile group">
-          {t.stream && t.stream.getVideoTracks().some((tr) => tr.readyState !== 'ended') ? (
-            <VideoEl
-              stream={t.stream}
-              muted={t.self}
-              trackKey={t.stream
-                .getTracks()
-                .map((tr) => tr.id + tr.readyState)
-                .join(',')}
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <div
-                className="flex h-20 w-20 items-center justify-center rounded-full text-xl font-semibold text-ink-950"
-                style={{ background: participantColor(t.id) }}
-              >
-                {initials(t.name)}
-              </div>
-            </div>
-          )}
-          <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/70 to-transparent px-3 py-2 text-sm">
-            <span>
-              {t.name}
-              {t.self ? ' (you)' : ''}
-            </span>
-            <span className="flex items-center gap-2">
-              <QualityBars n={quality[t.id] ?? (t.self ? 3 : 2)} />
-              <button
-                className="opacity-0 group-hover:opacity-100"
-                aria-label="Full screen"
-                onClick={() => onSpotlight(spotlight === t.id ? null : t.id)}
-              >
-                <Maximize2 className="h-4 w-4" />
-              </button>
-            </span>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function VideoEl({ stream, muted, trackKey }: { stream: MediaStream; muted?: boolean; trackKey?: string }) {
-  const ref = useRef<HTMLVideoElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.srcObject = stream;
-    const play = () => {
-      el.play().catch(() => undefined);
-    };
-    const refresh = () => {
-      el.srcObject = stream;
-      play();
-    };
-    el.addEventListener('loadedmetadata', play);
-    stream.addEventListener('addtrack', refresh);
-    stream.addEventListener('removetrack', refresh);
-    play();
-    return () => {
-      el.removeEventListener('loadedmetadata', play);
-      stream.removeEventListener('addtrack', refresh);
-      stream.removeEventListener('removetrack', refresh);
-    };
-  }, [stream, trackKey]);
-  return <video ref={ref} autoPlay playsInline muted={muted} />;
-}
-
-function QualityBars({ n }: { n: number }) {
-  return (
-    <span className="inline-flex items-end gap-0.5" aria-label={`Connection quality ${n} of 3`}>
-      {[1, 2, 3].map((i) => (
-        <span
-          key={i}
-          className={`w-1 rounded-sm ${i <= n ? 'bg-mint' : 'bg-white/20'}`}
-          style={{ height: 4 + i * 3 }}
-        />
-      ))}
-    </span>
   );
 }
 

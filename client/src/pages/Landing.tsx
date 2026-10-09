@@ -14,6 +14,7 @@ import { Logo } from '../components/Logo';
 import { NameHint } from '../components/NameHint';
 import { PermissionGate, type GateResult } from '../components/PermissionGate';
 import { SiteFooter, DEVELOPER, COMPANY, COPYRIGHT_YEAR } from '../components/SiteFooter';
+import { AdSlot } from '../components/AdSlot';
 import { getController } from '../services/roomController';
 import { requestAv } from '../services/permissions';
 import { useSession } from '../stores/session';
@@ -113,6 +114,9 @@ export default function Landing() {
         <nav className="flex items-center gap-4 text-sm text-slate-400">
           <Link className="hover:text-white" to="/plus">
             Plus
+          </Link>
+          <Link className="hover:text-white" to="/help">
+            Help
           </Link>
           <Link className="hover:text-white" to="/about">
             About
@@ -317,6 +321,8 @@ export default function Landing() {
           </article>
         </div>
       </section>
+
+      {!isInvite && <AdSlot placement="landing" />}
 
       <SiteFooter />
 

@@ -1,10 +1,11 @@
 import Stripe from 'stripe';
-import { PRICE_CATALOG, type PlanId, type PriceKey } from '../../../shared/billing.ts';
+import { PARTY_ADDON_USD, PARTY_PACKS, PRICE_CATALOG, type PlanId, type PriceKey } from '../../../shared/billing.ts';
 import { config } from '../config.ts';
 import { issueEntitlement, type Entitlement } from './entitlement.ts';
+import { findByStripeSession, issuePurchase } from './passes.ts';
 
 let stripe: Stripe | null = null;
-const priceCache = new Map<PriceKey, string>();
+const priceCache = new Map<string, string>();
 
 export function stripeEnabled(): boolean {
   return Boolean(config.stripeSecretKey);
@@ -28,10 +29,12 @@ function envPrice(key: PriceKey): string {
       return config.stripePriceProMonthly;
     case 'pro_yearly':
       return config.stripePriceProYearly;
+    default:
+      return '';
   }
 }
 
-export async function resolvePriceId(key: PriceKey): Promise<string> {
+export async function resolvePriceId(key: Extract<PriceKey, 'plus_monthly' | 'plus_yearly' | 'pro_monthly' | 'pro_yearly'>): Promise<string> {
   const fromEnv = envPrice(key);
   if (fromEnv) return fromEnv;
   const cached = priceCache.get(key);
@@ -67,30 +70,71 @@ export async function resolvePriceId(key: PriceKey): Promise<string> {
   return price.id;
 }
 
-export async function listPublicPrices(): Promise<
-  { key: PriceKey; plan: PlanId; interval: 'month' | 'year'; amountUsd: number; label: string; configured: boolean }[]
-> {
-  const enabled = stripeEnabled();
-  const rows: {
-    key: PriceKey;
-    plan: PlanId;
-    interval: 'month' | 'year';
-    amountUsd: number;
-    label: string;
-    configured: boolean;
-  }[] = [];
-  for (const key of Object.keys(PRICE_CATALOG) as PriceKey[]) {
+export function describeProduct(priceKey: PriceKey, extraSeats = 0): {
+  plan: Exclude<PlanId, 'free'>;
+  kind: 'sub' | 'party';
+  seats: number;
+  durationMs: number;
+  amountUsd: number;
+  label: string;
+} {
+  if (priceKey === 'party_addon') {
+    const n = Math.max(1, extraSeats);
+    return {
+      plan: 'party',
+      kind: 'party',
+      seats: n,
+      durationMs: 0,
+      amountUsd: n * PARTY_ADDON_USD,
+      label: `${n} extra invite${n === 1 ? '' : 's'}`,
+    };
+  }
+  const pack = PARTY_PACKS.find((p) => p.key === priceKey);
+  if (pack) {
+    return {
+      plan: 'party',
+      kind: 'party',
+      seats: pack.seats,
+      durationMs: pack.hours * 60 * 60 * 1000,
+      amountUsd: pack.amountUsd,
+      label: `${pack.name} · ${pack.seats} guests · ${pack.hours}h`,
+    };
+  }
+  const spec = PRICE_CATALOG[priceKey as keyof typeof PRICE_CATALOG];
+  if (!spec) throw new Error('invalid-price');
+  const durationMs = spec.interval === 'year' ? 365 * 24 * 60 * 60 * 1000 : 32 * 24 * 60 * 60 * 1000;
+  return {
+    plan: spec.plan,
+    kind: 'sub',
+    seats: spec.plan === 'pro' ? 40 : 20,
+    durationMs,
+    amountUsd: spec.amountUsd,
+    label: spec.label,
+  };
+}
+
+export async function listPublicPrices() {
+  const enabled = stripeEnabled() || config.billingSandbox;
+  const subs = (Object.keys(PRICE_CATALOG) as (keyof typeof PRICE_CATALOG)[]).map((key) => {
     const spec = PRICE_CATALOG[key];
-    rows.push({
+    return {
       key,
       plan: spec.plan,
       interval: spec.interval,
       amountUsd: spec.amountUsd,
       label: spec.label,
       configured: enabled,
-    });
-  }
-  return rows;
+    };
+  });
+  return {
+    enabled,
+    sandbox: config.billingSandbox && !stripeEnabled(),
+    stripe: stripeEnabled(),
+    testMode: stripeEnabled() ? config.stripeSecretKey.startsWith('sk_test_') : config.billingSandbox,
+    subscriptions: subs,
+    party: PARTY_PACKS.map((p) => ({ ...p, configured: enabled })),
+    addonUsd: PARTY_ADDON_USD,
+  };
 }
 
 export async function createCheckoutSession(opts: {
@@ -98,12 +142,44 @@ export async function createCheckoutSession(opts: {
   successUrl: string;
   cancelUrl: string;
   customerId?: string;
+  extraSeats?: number;
+  attachPassId?: string;
 }): Promise<{ url: string; id: string }> {
   const client = getStripe();
   if (!client) throw new Error('stripe-disabled');
-  const spec = PRICE_CATALOG[opts.priceKey];
-  if (!spec) throw new Error('invalid-price');
-  const price = await resolvePriceId(opts.priceKey);
+  const product = describeProduct(opts.priceKey, opts.extraSeats);
+  const metadata: Record<string, string> = {
+    cipherchat_plan: product.plan,
+    cipherchat_price: opts.priceKey,
+    cipherchat_kind: product.kind,
+    cipherchat_seats: String(product.seats),
+    cipherchat_duration: String(product.durationMs),
+  };
+  if (opts.attachPassId) metadata.cipherchat_pass = opts.attachPassId;
+
+  if (product.kind === 'party') {
+    const session = await client.checkout.sessions.create({
+      mode: 'payment',
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: 'usd',
+            unit_amount: Math.round(product.amountUsd * 100),
+            product_data: { name: `CipherChat ${product.label}` },
+          },
+        },
+      ],
+      success_url: opts.successUrl,
+      cancel_url: opts.cancelUrl,
+      metadata,
+      payment_intent_data: { metadata },
+    });
+    if (!session.url) throw new Error('stripe-session');
+    return { url: session.url, id: session.id };
+  }
+
+  const price = await resolvePriceId(opts.priceKey as 'plus_monthly' | 'plus_yearly' | 'pro_monthly' | 'pro_yearly');
   const session = await client.checkout.sessions.create({
     mode: 'subscription',
     line_items: [{ price, quantity: 1 }],
@@ -112,16 +188,8 @@ export async function createCheckoutSession(opts: {
     allow_promotion_codes: true,
     billing_address_collection: 'auto',
     customer: opts.customerId || undefined,
-    metadata: {
-      cipherchat_plan: spec.plan,
-      cipherchat_price: opts.priceKey,
-    },
-    subscription_data: {
-      metadata: {
-        cipherchat_plan: spec.plan,
-        cipherchat_price: opts.priceKey,
-      },
-    },
+    metadata,
+    subscription_data: { metadata },
   });
   if (!session.url) throw new Error('stripe-session');
   return { url: session.url, id: session.id };
@@ -140,25 +208,38 @@ export async function createPortalSession(opts: {
   return { url: portal.url };
 }
 
+export async function refundStripe(paymentIntentId: string, amountCents: number): Promise<string | null> {
+  const client = getStripe();
+  if (!client) return null;
+  const refund = await client.refunds.create({
+    payment_intent: paymentIntentId,
+    amount: amountCents,
+  });
+  return refund.id;
+}
+
 function planFromMeta(meta: Stripe.Metadata | null | undefined): Exclude<PlanId, 'free'> | null {
   const p = meta?.cipherchat_plan;
-  if (p === 'plus' || p === 'pro') return p;
+  if (p === 'plus' || p === 'pro' || p === 'party') return p;
   return null;
 }
 
 export async function entitlementFromCheckout(sessionId: string): Promise<{
   token: string;
   entitlement: Entitlement;
+  passCode?: string;
+  passId: string;
 } | null> {
   const client = getStripe();
   if (!client) return null;
   const session = await client.checkout.sessions.retrieve(sessionId, {
-    expand: ['subscription'],
+    expand: ['subscription', 'payment_intent'],
   });
   if (session.payment_status !== 'paid' && session.status !== 'complete') return null;
-  const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id;
-  if (!customerId) return null;
-  let plan = planFromMeta(session.metadata);
+  const customerId =
+    typeof session.customer === 'string' ? session.customer : session.customer?.id ?? `anon_${session.id}`;
+  const meta = session.metadata ?? {};
+  let plan = planFromMeta(meta);
   let expires = Date.now() + 32 * 24 * 60 * 60 * 1000;
   const sub = session.subscription;
   if (sub && typeof sub !== 'string') {
@@ -168,32 +249,56 @@ export async function entitlementFromCheckout(sessionId: string): Promise<{
     if (typeof period === 'number') expires = period * 1000;
   }
   if (!plan) return null;
-  const token = issueEntitlement({ plan, customerId, expiresAt: expires });
+  const kind = meta.cipherchat_kind === 'party' || plan === 'party' ? 'party' : 'sub';
+  const seats = Number(meta.cipherchat_seats || 0) || (plan === 'pro' ? 40 : 20);
+  const durationMs = Number(meta.cipherchat_duration || 0) || (kind === 'party' ? 6 * 3600_000 : expires - Date.now());
+  const pi =
+    typeof session.payment_intent === 'string'
+      ? session.payment_intent
+      : session.payment_intent?.id;
+  const existing = findByStripeSession(session.id);
+  const issued = issuePurchase({
+    plan,
+    kind,
+    seats: meta.cipherchat_price === 'party_addon' ? Number(meta.cipherchat_seats || 1) : seats,
+    durationMs: durationMs || 32 * 24 * 3600_000,
+    amountPaidCents: session.amount_total ?? 0,
+    stripeSessionId: session.id,
+    stripePaymentIntentId: pi,
+    attachPassId: meta.cipherchat_pass,
+    extraSeats: meta.cipherchat_price === 'party_addon' ? seats : undefined,
+  });
+  const token = issueEntitlement({
+    plan: issued.pass.plan,
+    customerId,
+    expiresAt: issued.pass.expiresAt,
+    kind: issued.pass.kind,
+    seats: issued.pass.seats,
+    durationMs: issued.pass.durationMs,
+    passId: issued.pass.id,
+  });
   return {
     token,
+    passCode: existing ? undefined : issued.code,
+    passId: issued.pass.id,
     entitlement: {
       v: 1,
-      plan,
+      plan: issued.pass.plan,
       sub: customerId,
-      exp: Math.floor(expires / 1000),
+      exp: Math.floor(issued.pass.expiresAt / 1000),
       iat: Math.floor(Date.now() / 1000),
+      kind: issued.pass.kind,
+      seats: issued.pass.seats,
+      durationMs: issued.pass.durationMs,
+      passId: issued.pass.id,
     },
   };
 }
 
 export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
-  switch (event.type) {
-    case 'checkout.session.completed':
-    case 'customer.subscription.updated':
-    case 'customer.subscription.deleted':
-    case 'invoice.paid':
-    case 'invoice.payment_failed':
-      // Entitlements are issued at claim time from live Stripe state.
-      // Subscription cancellations take effect when the signed token expires
-      // or the next claim/status check hits Stripe.
-      break;
-    default:
-      break;
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object as Stripe.Checkout.Session;
+    if (session.id) await entitlementFromCheckout(session.id).catch(() => undefined);
   }
 }
 

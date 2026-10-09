@@ -6,6 +6,7 @@ import { RoomManager } from '../rooms/manager.ts';
 import { parseRoomCode, sanitizeDisplayName, isAllowedEmoji, isSafeClientId } from '../security/validation.ts';
 import { hit } from '../security/rateLimit.ts';
 import { limitsFor, verifyEntitlement } from '../billing/entitlement.ts';
+import { findByCode, noteJoin, updatePass } from '../billing/passes.ts';
 
 const MAX_SIGNAL_BYTES = 32_768;
 const MAX_CIPHERTEXT_BYTES = 24_000;
@@ -164,21 +165,43 @@ function onJoin(
   }
 
   const entitlement = verifyEntitlement(typeof msg.entitlement === 'string' ? msg.entitlement : undefined);
-  const plan = entitlement?.plan ?? 'free';
-  const limits = limitsFor(plan);
+  let plan = entitlement?.plan ?? 'free';
+  let party: { seats: number; durationMs: number } | undefined;
+  let boundRoom = roomCode;
+
+  if (typeof msg.passCode === 'string' && msg.passCode.trim()) {
+    const pass = findByCode(msg.passCode);
+    if (pass && !pass.revoked && pass.expiresAt > Date.now()) {
+      plan = pass.plan;
+      party = { seats: pass.seats, durationMs: Math.max(60_000, pass.expiresAt - Date.now()) };
+      if (pass.kind === 'party' && pass.roomCode) boundRoom = pass.roomCode;
+    }
+  } else if (entitlement?.kind === 'party' && entitlement.seats) {
+    party = { seats: entitlement.seats, durationMs: entitlement.durationMs ?? 6 * 3600_000 };
+  }
+
+  const limits = limitsFor(plan, party);
 
   const { room, participant, created } = manager.joinOrCreate({
     name,
-    roomCode,
-    createRandom: Boolean(msg.createRandom) && !roomCode,
+    roomCode: boundRoom,
+    createRandom: Boolean(msg.createRandom) && !boundRoom,
     sessionToken: typeof msg.sessionToken === 'string' ? msg.sessionToken : undefined,
     ws,
-    plan,
+    plan: plan === 'party' ? 'plus' : plan,
     maxParticipants: limits.maxParticipants,
     holdMs: limits.holdMs,
     maxLifetimeMs: limits.maxLifetimeMs,
     maxFileBytes: limits.maxFileBytes,
   });
+
+  if (typeof msg.passCode === 'string') {
+    const pass = findByCode(msg.passCode);
+    if (pass && pass.kind === 'party') {
+      if (!pass.roomCode) updatePass(pass.id, { roomCode: room.code });
+      noteJoin(pass, room.participants.size);
+    }
+  }
 
   ctx.authed = true;
   ctx.participantId = participant.id;

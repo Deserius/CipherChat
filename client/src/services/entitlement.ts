@@ -1,9 +1,14 @@
-import { ENTITLEMENT_STORAGE_KEY, PLAN_LIMITS, type PlanId } from '@shared/billing';
+import { ENTITLEMENT_STORAGE_KEY, PASS_STORAGE_KEY, limitsForPlan, type PlanId } from '@shared/billing';
 
 export interface LocalEntitlement {
   token: string;
   plan: Exclude<PlanId, 'free'>;
   expiresAt: number;
+  passCode?: string;
+  passId?: string;
+  kind?: 'sub' | 'party';
+  seats?: number;
+  roomCode?: string;
 }
 
 function read(): LocalEntitlement | null {
@@ -11,7 +16,8 @@ function read(): LocalEntitlement | null {
     const raw = localStorage.getItem(ENTITLEMENT_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as LocalEntitlement;
-    if (!parsed?.token || (parsed.plan !== 'plus' && parsed.plan !== 'pro')) return null;
+    if (!parsed?.token) return null;
+    if (parsed.plan !== 'plus' && parsed.plan !== 'pro' && parsed.plan !== 'party') return null;
     if (parsed.expiresAt && parsed.expiresAt < Date.now()) {
       localStorage.removeItem(ENTITLEMENT_STORAGE_KEY);
       return null;
@@ -34,14 +40,32 @@ export function entitlementToken(): string | undefined {
   return read()?.token;
 }
 
+export function passCode(): string | undefined {
+  try {
+    return localStorage.getItem(PASS_STORAGE_KEY) || read()?.passCode;
+  } catch {
+    return read()?.passCode;
+  }
+}
+
 export function saveEntitlement(data: LocalEntitlement) {
-  localStorage.setItem(ENTITLEMENT_STORAGE_KEY, JSON.stringify(data));
+  const stored = { ...data };
+  if (data.passCode) {
+    try {
+      localStorage.setItem(PASS_STORAGE_KEY, data.passCode);
+    } catch {
+      /* private mode */
+    }
+  }
+  localStorage.setItem(ENTITLEMENT_STORAGE_KEY, JSON.stringify(stored));
 }
 
 export function clearEntitlement() {
   localStorage.removeItem(ENTITLEMENT_STORAGE_KEY);
+  localStorage.removeItem(PASS_STORAGE_KEY);
 }
 
 export function currentLimits() {
-  return PLAN_LIMITS[getPlan()];
+  const e = read();
+  return limitsForPlan(e?.plan ?? 'free', e?.seats ? { seats: e.seats, durationMs: Math.max(0, e.expiresAt - Date.now()) } : undefined);
 }
