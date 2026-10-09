@@ -179,6 +179,27 @@ export class RoomCrypto {
     return decryptBytes(this.roomKey, buf, iv);
   }
 
+  async encryptDirect(peerId: string, text: string) {
+    const their = this.peerKeys.get(peerId);
+    if (!this.identity || !their) throw new Error('no peer key');
+    const key = await deriveWrapKey(this.identity.privateKey, their);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(text));
+    return { ciphertext: bytesToB64(ct), iv: bytesToB64(iv) };
+  }
+
+  async decryptDirect(peerId: string, ciphertext: string, iv: string) {
+    const their = this.peerKeys.get(peerId);
+    if (!this.identity || !their) throw new Error('no peer key');
+    const key = await deriveWrapKey(this.identity.privateKey, their);
+    const pt = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: b64ToBytes(iv) },
+      key,
+      b64ToBytes(ciphertext),
+    );
+    return new TextDecoder().decode(pt);
+  }
+
   destroy(): void {
     this.identity = null;
     this.publicKeyB64 = null;

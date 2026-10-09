@@ -4,6 +4,8 @@ import { ALLOWED_FILE_MIME } from '../../../shared/constants.ts';
 import { config, iceServers, publicConfig } from '../config.ts';
 import { RoomManager } from '../rooms/manager.ts';
 import { parseRoomCode, sanitizeDisplayName, isAllowedEmoji, isSafeClientId } from '../security/validation.ts';
+import { lobbyBySlug, lobbyDisplayName } from '../../../shared/lobbies.ts';
+import { sanitizeAvatar, sanitizeTheme } from '../../../shared/avatars.ts';
 import { hit } from '../security/rateLimit.ts';
 import { limitsFor, verifyEntitlement } from '../billing/entitlement.ts';
 import { findByCode, noteJoin, updatePass } from '../billing/passes.ts';
@@ -88,6 +90,14 @@ export function processClientMessage(
         return onHeartbeat(manager, ctx);
       case 'media-state':
         return onMediaState(manager, ctx, msg);
+      case 'whisper':
+        return onWhisper(manager, ctx, msg);
+      case 'split-decision':
+        return onSplitDecision(manager, ws, ctx, msg);
+      case 'presence':
+        return onPresence(manager, ctx, msg);
+      case 'room-theme':
+        return onRoomTheme(manager, ctx, msg);
       default:
         safeSend(ws, { type: 'error', code: 'invalid-message', message: 'Unknown message type.' });
     }
@@ -146,6 +156,12 @@ function onJoin(
   const name = sanitizeDisplayName(msg.name);
   let roomCode: string | undefined;
   if (msg.roomCode) roomCode = parseRoomCode(msg.roomCode);
+  const lobbySlug = typeof msg.lobby === 'string' ? msg.lobby.trim().toLowerCase() : '';
+  const lobbyTheme = lobbySlug ? lobbyBySlug(lobbySlug) : undefined;
+  if (lobbySlug && !lobbyTheme) {
+    safeSend(ws, { type: 'error', code: 'invalid-room-code', message: 'Unknown lounge.' });
+    return;
+  }
 
   if (msg.createRandom) {
     const createHit = hit(
@@ -180,27 +196,60 @@ function onJoin(
     party = { seats: entitlement.seats, durationMs: entitlement.durationMs ?? 6 * 3600_000 };
   }
 
-  const limits = limitsFor(plan, party);
+  const planId = plan === 'plus' || plan === 'pro' || plan === 'party' ? plan : 'free';
+  const limits = limitsFor(planId, party);
+  const avatar = sanitizeAvatar(msg.avatar);
+  const isParty = planId === 'party' || Boolean(party);
 
-  const { room, participant, created } = manager.joinOrCreate({
-    name,
-    roomCode: boundRoom,
-    createRandom: Boolean(msg.createRandom) && !boundRoom,
-    sessionToken: typeof msg.sessionToken === 'string' ? msg.sessionToken : undefined,
-    ws,
-    plan: plan === 'party' ? 'plus' : plan,
-    maxParticipants: limits.maxParticipants,
-    holdMs: limits.holdMs,
-    maxLifetimeMs: limits.maxLifetimeMs,
-    maxFileBytes: limits.maxFileBytes,
-  });
+  let room;
+  let participant;
+  let created: boolean;
+  let splitFrom;
+
+  if (lobbyTheme) {
+    const joined = manager.joinLobby({
+      slug: lobbyTheme.slug,
+      index: typeof msg.lobbyIndex === 'number' ? msg.lobbyIndex : undefined,
+      name,
+      ws,
+      sessionToken: typeof msg.sessionToken === 'string' ? msg.sessionToken : undefined,
+      plan: planId === 'pro' ? 'pro' : planId === 'plus' || planId === 'party' ? 'plus' : 'free',
+      maxFileBytes: limits.maxFileBytes,
+      avatar,
+    });
+    room = joined.room;
+    participant = joined.participant;
+    created = joined.created;
+    splitFrom = joined.splitFrom;
+  } else {
+    const joined = manager.joinOrCreate({
+      name,
+      roomCode: boundRoom,
+      createRandom: Boolean(msg.createRandom) && !boundRoom,
+      sessionToken: typeof msg.sessionToken === 'string' ? msg.sessionToken : undefined,
+      ws,
+      plan: planId === 'pro' ? 'pro' : planId === 'plus' || planId === 'party' ? 'plus' : 'free',
+      maxParticipants: limits.maxParticipants,
+      holdMs: limits.holdMs,
+      maxLifetimeMs: limits.maxLifetimeMs,
+      maxFileBytes: limits.maxFileBytes,
+      kind: isParty ? 'party' : 'code',
+      avatar,
+    });
+    room = joined.room;
+    participant = joined.participant;
+    created = joined.created;
+  }
 
   if (typeof msg.passCode === 'string') {
     const pass = findByCode(msg.passCode);
     if (pass && pass.kind === 'party') {
       if (!pass.roomCode) updatePass(pass.id, { roomCode: room.code });
       noteJoin(pass, room.participants.size);
+      room.kind = 'party';
     }
+  } else if (isParty && room.kind === 'code') {
+    room.kind = 'party';
   }
 
   ctx.authed = true;
@@ -215,7 +264,23 @@ function onJoin(
     participants: manager.publicParticipants(room),
     created,
     iceServers: iceServers(),
+    title: room.title,
+    kind: room.kind,
+    lobbySlug: room.lobbySlug,
+    lobbyIndex: room.lobbyIndex,
+    maxParticipants: room.maxParticipants,
+    host: room.hostId === participant.id,
+    theme: room.theme,
   });
+
+  if (splitFrom && room.lobbySlug && room.lobbyIndex && room.lobbyIndex > 1) {
+    manager.offerSplit(
+      splitFrom,
+      lobbyDisplayName(lobbyTheme!.name, room.lobbyIndex),
+      room.lobbySlug,
+      room.lobbyIndex,
+    );
+  }
 
   manager.broadcast(
     room,
@@ -228,6 +293,7 @@ function onJoin(
         camera: false,
         microphone: false,
         screen: false,
+        avatar: participant.avatar,
       },
     },
     participant.id,
@@ -472,6 +538,81 @@ function onMediaState(
     },
     p.id,
   );
+}
+
+function onWhisper(
+  manager: RoomManager,
+  ctx: SocketCtx,
+  msg: Extract<ClientMessage, { type: 'whisper' }>,
+) {
+  const { room, p } = requireRoom(manager, ctx);
+  if (!manager.allowMessage(p)) return;
+  if (typeof msg.to !== 'string' || !room.participants.has(msg.to) || msg.to === p.id) return;
+  if (typeof msg.ciphertext !== 'string' || msg.ciphertext.length > MAX_CIPHERTEXT_BYTES) return;
+  if (typeof msg.iv !== 'string' || msg.iv.length > 64) return;
+  manager.sendTo(room, msg.to, {
+    type: 'whisper',
+    from: p.id,
+    fromName: p.name,
+    ciphertext: msg.ciphertext,
+    iv: msg.iv,
+    clientId: typeof msg.clientId === 'string' ? msg.clientId.slice(0, 80) : '',
+    ts: Date.now(),
+  });
+}
+
+function onSplitDecision(
+  manager: RoomManager,
+  ws: WebSocket,
+  ctx: SocketCtx,
+  msg: Extract<ClientMessage, { type: 'split-decision' }>,
+) {
+  if (!msg.accept) return;
+  const theme = lobbyBySlug(msg.lobby);
+  if (!theme) return;
+  const name = ctx.participantId ? manager.findParticipant(ctx.participantId)?.participant.name : undefined;
+  if (!name) return;
+  manager.leave(ctx.participantId!);
+  const fake = {
+    type: 'join' as const,
+    name,
+    lobby: msg.lobby,
+    lobbyIndex: msg.index,
+  };
+  onJoin(manager, ws, ctx, fake);
+}
+
+function onPresence(
+  manager: RoomManager,
+  ctx: SocketCtx,
+  msg: Extract<ClientMessage, { type: 'presence' }>,
+) {
+  const { room, p } = requireRoom(manager, ctx);
+  if (!manager.allowMessage(p)) return;
+  const avatar = sanitizeAvatar(msg.avatar);
+  p.avatar = avatar;
+  manager.broadcast(room, { type: 'presence', from: p.id, avatar }, p.id);
+}
+
+function onRoomTheme(
+  manager: RoomManager,
+  ctx: SocketCtx,
+  msg: Extract<ClientMessage, { type: 'room-theme' }>,
+) {
+  const { room, p } = requireRoom(manager, ctx);
+  if (!manager.allowMessage(p)) return;
+  if (room.kind !== 'party') return;
+  if (room.hostId && room.hostId !== p.id) return;
+  const theme = sanitizeTheme(msg);
+  room.theme = { ...room.theme, ...theme };
+  if (theme.title) room.title = theme.title;
+  manager.broadcast(room, {
+    type: 'room-theme',
+    title: room.title,
+    background: room.theme.background,
+    font: room.theme.font,
+    accent: room.theme.accent,
+  });
 }
 
 export { safeSend };

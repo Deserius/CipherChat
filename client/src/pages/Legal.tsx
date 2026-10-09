@@ -79,8 +79,9 @@ export function PrivacyPage() {
       <p>
         CipherChat does not use advertising cookies. A session token may be kept in <code>sessionStorage</code> so a
         refresh can reconnect during the grace period. A Plus/Pro entitlement token may be kept in{' '}
-        <code>localStorage</code> on this device only. The Progressive Web App caches only static application assets,
-        never messages or room content.
+        <code>localStorage</code> on this device only. A record that you accepted the 18+ / liability screen
+        (<code>cipherchat.legal.v1</code>) is stored on this device only — not a name or ID. The Progressive Web App
+        caches only static application assets, never messages or room content.
       </p>
       <h2 className="pt-4 text-xl font-semibold text-white">Security practices</h2>
       <p>
@@ -106,11 +107,23 @@ export function PrivacyPage() {
 export function TermsPage() {
   return (
     <LegalShell title="Terms of Service">
-      <p className="text-slate-500">Last updated: 7 September 2026. Informational terms for the CipherChat software.</p>
+      <p className="text-slate-500">Last updated: 8 October 2026. Informational terms for the CipherChat software — not legal advice.</p>
+      <h2 className="pt-4 text-xl font-semibold text-white">Age requirement</h2>
+      <p>
+        You must be at least 18 years old. CipherChat is not directed to children. Use by minors is prohibited
+        (see COPPA, 15 U.S.C. §§ 6501–6506). Checking the age box on first launch is a condition of access.
+      </p>
       <h2 className="pt-4 text-xl font-semibold text-white">Acceptable use</h2>
       <p>
         You may use CipherChat for lawful, consensual communication. You must not use it to harass, abuse, exploit
         minors, distribute malware, conduct fraud, or violate applicable law.
+      </p>
+      <h2 className="pt-4 text-xl font-semibold text-white">Common lounge rules</h2>
+      <p>
+        Themed public lounges (Workout Kingz, Study Hive, and others) prohibit nudity, sexual content,
+        hate, racism, slurs, harassment, and illegal material. If you want a closed group, create a
+        private numeric room or buy a Party pass. CipherChat does not watch rooms; you remain responsible
+        for your conduct. Agreeing to the join modal is required to enter a lounge.
       </p>
       <h2 className="pt-4 text-xl font-semibold text-white">Illegal content</h2>
       <p>
@@ -155,6 +168,18 @@ export function TermsPage() {
           About &amp; developer
         </Link>{' '}
         page.
+      </p>
+      <h2 className="pt-4 text-xl font-semibold text-white">Released parties</h2>
+      <p>
+        The liability waiver you accept on first launch covers {DEVELOPER}, {COMPANY}, and their owners, members,
+        officers, employees, contractors, affiliates, and successors. You use CipherChat at your own risk and
+        indemnify the Released Parties for claims arising from your content, invitees, or unlawful use. Nothing
+        here waives liability that applicable law makes non-waivable.
+      </p>
+      <h2 className="pt-4 text-xl font-semibold text-white">User-generated content</h2>
+      <p>
+        The Released Parties are not the publisher of user communications. See 47 U.S.C. § 230. They do not
+        monitor rooms and cannot recover destroyed messages.
       </p>
     </LegalShell>
   );

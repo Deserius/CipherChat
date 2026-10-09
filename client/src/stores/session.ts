@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { ErrorCode, PublicConfig, PublicParticipant, RTCIceServerLike } from '@shared/protocol';
+import type { RoomTheme } from '@shared/avatars';
 
 export type Phase =
   | 'landing'
@@ -15,7 +16,9 @@ export interface ChatLine {
   from: string;
   fromName: string;
   text: string;
-  kind: 'text' | 'image' | 'file' | 'emoji' | 'system';
+  kind: 'text' | 'image' | 'file' | 'emoji' | 'system' | 'whisper';
+  whisperTo?: string;
+  whisperToName?: string;
   ts: number;
   self: boolean;
   status: 'pending' | 'sent' | 'delivered' | 'failed' | 'retracted';
@@ -45,6 +48,14 @@ export interface SessionState {
   banner: string;
   mediaError?: string;
   destroyedReason?: string;
+  roomTitle?: string;
+  kind?: 'code' | 'lobby' | 'party';
+  lobbySlug?: string;
+  lobbyIndex?: number;
+  splitOffer?: { lobby: string; index: number; title: string; reason: string };
+  avatar?: string;
+  theme?: RoomTheme;
+  isHost?: boolean;
 
   set: (p: Partial<SessionState>) => void;
   reset: () => void;

@@ -8,6 +8,7 @@ import PlusSuccessPage from './pages/PlusSuccess';
 import PaySandboxPage from './pages/PaySandbox';
 import HelpPage from './pages/Help';
 import { DestroyedPage, ErrorPage, LeftPage } from './pages/Status';
+import { AgeGate } from './components/AgeGate';
 
 function JoinRedirect() {
   const { code } = useParams();
@@ -16,9 +17,12 @@ function JoinRedirect() {
 
 export default function App() {
   return (
+    <>
+    <AgeGate />
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/r/:code" element={<Landing />} />
+      <Route path="/c/:slug" element={<Landing />} />
       <Route path="/room/:code" element={<RoomPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
@@ -33,5 +37,6 @@ export default function App() {
       <Route path="/join/:code" element={<JoinRedirect />} />
       <Route path="*" element={<Landing />} />
     </Routes>
+    </>
   );
 }

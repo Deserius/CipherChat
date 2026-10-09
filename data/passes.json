@@ -28,6 +28,64 @@
       "amountPaidCents": 600,
       "refundedCents": 0,
       "revoked": false
+    },
+    {
+      "id": "e48860a4573ff845",
+      "hash": "c3ad5de49a5de91b2dad3e75111e145b9cadcec325d3d90313638a2922b9fa42",
+      "kind": "party",
+      "plan": "party",
+      "seats": 8,
+      "peakJoins": 0,
+      "durationMs": 7200000,
+      "createdAt": 1791519310431,
+      "expiresAt": 1791526510431,
+      "amountPaidCents": 600,
+      "refundedCents": 0,
+      "revoked": false
+    },
+    {
+      "id": "a065ae338a9bc6b0",
+      "hash": "44e75cab66bb54fbc812d305522dc122e8339da1cd9588218e07cb5844986e4f",
+      "kind": "party",
+      "plan": "party",
+      "seats": 8,
+      "peakJoins": 0,
+      "durationMs": 7200000,
+      "createdAt": 1791519310479,
+      "expiresAt": 1791526510479,
+      "stripeSessionId": "sandbox_ord_6965e19f5835e91a",
+      "amountPaidCents": 600,
+      "refundedCents": 0,
+      "revoked": false
+    },
+    {
+      "id": "fc1c3627a16d6dd9",
+      "hash": "7d7a9d9a2e0f21cba78f21e9fea76b9014251ea2680bf13dcb25913d614c0eaf",
+      "kind": "party",
+      "plan": "party",
+      "seats": 8,
+      "peakJoins": 0,
+      "durationMs": 7200000,
+      "createdAt": 1791525046981,
+      "expiresAt": 1791532246981,
+      "amountPaidCents": 600,
+      "refundedCents": 0,
+      "revoked": false
+    },
+    {
+      "id": "1365ff8d710393ff",
+      "hash": "5989ef5735922872987d12f67e372aa853b6abdffa4a27ef751a0559d9cdd3eb",
+      "kind": "party",
+      "plan": "party",
+      "seats": 8,
+      "peakJoins": 0,
+      "durationMs": 7200000,
+      "createdAt": 1791525047023,
+      "expiresAt": 1791532247023,
+      "stripeSessionId": "sandbox_ord_27bb92784df4f66d",
+      "amountPaidCents": 600,
+      "refundedCents": 0,
+      "revoked": false
     }
   ]
 }

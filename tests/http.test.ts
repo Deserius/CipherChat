@@ -28,6 +28,14 @@ describe('HTTP API', () => {
     expect(res.body).not.toHaveProperty('twilioAuthToken');
   });
 
+  it('lists public lounges without PII', async () => {
+    const res = await request(app).get('/api/lobbies');
+    expect(res.status).toBe(200);
+    expect(res.body.lobbies.length).toBeGreaterThan(5);
+    expect(res.body.lobbies[0]).toHaveProperty('maxUsers');
+    expect(JSON.stringify(res.body)).not.toMatch(/sessionToken|ciphertext/);
+  });
+
   it('returns ICE servers', async () => {
     const res = await request(app).get('/api/ice');
     expect(res.status).toBe(200);

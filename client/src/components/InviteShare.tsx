@@ -12,7 +12,7 @@ export function InviteShare({
   const url = inviteUrl(code);
   const [qr, setQr] = useState<string | null>(null);
   const [copied, setCopied] = useState<'link' | 'code' | null>(null);
-  const message = `Join my CipherChat. One tap, enter a name, allow camera/mic: ${url}`;
+  const message = `Join my CipherChat. One tap, enter a name — camera stays off until you turn it on: ${url}`;
 
   useEffect(() => {
     const prev = document.body.style.overflow;

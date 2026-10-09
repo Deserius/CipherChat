@@ -20,6 +20,7 @@ A single Node process serves:
 - `GET /api/health|config|ice|ops` — public/ops endpoints
 - `POST /api/invite/sms` — optional Twilio
 - `/api/billing/*` — Stripe Checkout, sandbox test cards, pass redeem/refund
+- `GET /api/lobbies` — themed lounge occupancy
 - `GET /ws` — WebSocket upgrade for signaling + ciphertext relay
 
 There is no required database. PostgreSQL is not used. Redis/Valkey is optional for a future multi-instance adapter; the default is a single in-memory map with aggressive destruction.

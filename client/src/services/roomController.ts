@@ -21,7 +21,14 @@ export class RoomController {
   ws = new WsClient();
   crypto = new RoomCrypto();
   call: CallManager;
-  private joinPayload: { name: string; roomCode?: string; createRandom?: boolean } | null = null;
+  private joinPayload: {
+    name: string;
+    roomCode?: string;
+    createRandom?: boolean;
+    lobby?: string;
+    lobbyIndex?: number;
+    avatar?: string;
+  } | null = null;
   private keyWaiters: Array<() => void> = [];
   private files = new Map<string, { meta: { name: string; mime: string; iv: string; total: number; kind: 'image' | 'file'; from: string; fromName: string }; chunks: (Uint8Array | undefined)[] }>();
   private announced = false;
@@ -61,7 +68,14 @@ export class RoomController {
     this.call.onQuality = (id, score) => this.onQuality(id, score);
   }
 
-  async enter(opts: { name: string; roomCode?: string; createRandom?: boolean }) {
+  async enter(opts: {
+    name: string;
+    roomCode?: string;
+    createRandom?: boolean;
+    lobby?: string;
+    lobbyIndex?: number;
+    avatar?: string;
+  }) {
     this.joinPayload = opts;
     useSession.getState().set({
       phase: 'connecting',
@@ -88,7 +102,54 @@ export class RoomController {
       sessionToken: token,
       entitlement: entitlementToken(),
       passCode: passCode(),
+      lobby: p.lobby,
+      lobbyIndex: p.lobbyIndex,
+      avatar: p.avatar,
     });
+  }
+
+  setAvatar(avatar?: string) {
+    try {
+      if (avatar) sessionStorage.setItem('cipherchat.avatar', avatar);
+      else sessionStorage.removeItem('cipherchat.avatar');
+    } catch {
+      /* private mode */
+    }
+    useSession.getState().set({
+      avatar,
+      participants: useSession.getState().participants.map((p) =>
+        p.id === useSession.getState().participantId ? { ...p, avatar } : p,
+      ),
+    });
+    this.ws.send({ type: 'presence', avatar });
+  }
+
+  setRoomTheme(theme: { title?: string; background?: string; font?: 'sans' | 'mono' | 'serif'; accent?: string }) {
+    this.ws.send({ type: 'room-theme', ...theme });
+    const st = useSession.getState();
+    st.set({
+      theme: { ...st.theme, ...theme },
+      roomTitle: theme.title || st.roomTitle,
+    });
+  }
+
+  async migrateLobby(slug: string, index: number) {
+    const name = useSession.getState().name;
+    this.ws.send({ type: 'leave' });
+    this.call.hangup();
+    this.crypto.destroy();
+    this.announced = false;
+    this.files.clear();
+    this.joinPayload = { name, lobby: slug, lobbyIndex: index, avatar: useSession.getState().avatar };
+    useSession.getState().set({
+      phase: 'connecting',
+      messages: [],
+      participants: [],
+      cryptoReady: false,
+      splitOffer: undefined,
+    });
+    await this.crypto.init();
+    this.tryJoin();
   }
 
   leave() {
@@ -125,6 +186,28 @@ export class RoomController {
     };
     useSession.getState().addMessage(line);
     this.ws.send({ type: 'chat', ciphertext, iv, kind: 'text', clientId: id });
+  }
+
+  async sendWhisper(to: string, text: string) {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const id = rid();
+    const { ciphertext, iv } = await this.crypto.encryptDirect(to, trimmed);
+    const target = useSession.getState().participants.find((p) => p.id === to);
+    useSession.getState().addMessage({
+      id,
+      from: useSession.getState().participantId,
+      fromName: useSession.getState().name,
+      text: trimmed,
+      kind: 'whisper',
+      ts: Date.now(),
+      self: true,
+      status: 'sent',
+      reactions: {},
+      whisperTo: to,
+      whisperToName: target?.name,
+    });
+    this.ws.send({ type: 'whisper', to, ciphertext, iv, clientId: id });
   }
 
   setTyping(isTyping: boolean) {
@@ -275,6 +358,13 @@ export class RoomController {
           participants: msg.participants,
           created: msg.created,
           iceServers: msg.iceServers,
+          roomTitle: msg.title,
+          kind: msg.kind ?? 'code',
+          lobbySlug: msg.lobbySlug,
+          lobbyIndex: msg.lobbyIndex,
+          isHost: Boolean(msg.host),
+          theme: msg.theme,
+          avatar: this.joinPayload?.avatar ?? st.avatar,
         });
         try {
           sessionStorage.setItem('cipherchat.session', msg.sessionToken);
@@ -339,6 +429,54 @@ export class RoomController {
       }
       case 'signal':
         await this.call.handleSignal(msg.from, msg.data);
+        break;
+      case 'whisper': {
+        let text = 'Unable to decrypt secret.';
+        try {
+          text = await this.crypto.decryptDirect(msg.from, msg.ciphertext, msg.iv);
+        } catch {
+          /* missing peer key */
+        }
+        useSession.getState().addMessage({
+          id: msg.clientId || rid(),
+          from: msg.from,
+          fromName: msg.fromName,
+          text,
+          kind: 'whisper',
+          ts: msg.ts,
+          self: false,
+          status: 'delivered',
+          reactions: {},
+        });
+        break;
+      }
+      case 'split-offer':
+        useSession.getState().set({
+          splitOffer: {
+            lobby: msg.lobby,
+            index: msg.index,
+            title: msg.title,
+            reason: msg.reason,
+          },
+        });
+        break;
+      case 'presence': {
+        const cur = useSession.getState();
+        cur.set({
+          participants: cur.participants.map((p) => (p.id === msg.from ? { ...p, avatar: msg.avatar } : p)),
+        });
+        break;
+      }
+      case 'room-theme':
+        useSession.getState().set({
+          theme: {
+            title: msg.title,
+            background: msg.background,
+            font: msg.font,
+            accent: msg.accent,
+          },
+          roomTitle: msg.title || useSession.getState().roomTitle,
+        });
         break;
       case 'key-announce':
         await this.crypto.addPeerPublicKey(msg.from, msg.publicKey);
@@ -539,6 +677,8 @@ export function initials(name: string) {
 }
 
 export function inviteUrl(code: string) {
+  const slug = useSession.getState().lobbySlug;
+  if (slug) return `${location.origin}/c/${slug}`;
   return `${location.origin}/r/${code}`;
 }
 

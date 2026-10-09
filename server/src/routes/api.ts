@@ -38,6 +38,10 @@ export function createApi(manager: RoomManager) {
     res.json({ iceServers: iceServers() });
   });
 
+  api.get('/lobbies', (_req, res) => {
+    res.json({ lobbies: manager.lobbySnapshot() });
+  });
+
   // Privacy-preserving ops snapshot — no names, no room codes, no messages.
   api.get('/ops', (_req, res) => {
     const s = manager.stats();

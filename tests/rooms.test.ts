@@ -6,6 +6,8 @@ import { parseRoomCode, sanitizeDisplayName } from '../server/src/security/valid
 import { hit } from '../server/src/security/rateLimit.ts';
 import { processClientMessage, createSend, type SocketCtx } from '../server/src/realtime/handler.ts';
 import { encryptText, decryptText, generateRoomKey, generateIdentity, wrapRoomKey, unwrapRoomKey } from '../client/src/crypto/roomCrypto.ts';
+import { parseCipherInvite } from '../shared/invite.ts';
+import { sanitizeAvatar } from '../shared/avatars.ts';
 
 function mockWs() {
   const sent: unknown[] = [];
@@ -46,6 +48,23 @@ describe('validation', () => {
     expect(sanitizeDisplayName('  Alice  ')).toBe('Alice');
     expect(() => sanitizeDisplayName('')).toThrow();
     expect(() => sanitizeDisplayName('x'.repeat(40))).toThrow();
+  });
+});
+
+describe('invite parse', () => {
+  it('reads codes, /r/ paths, and lounge slugs', () => {
+    expect(parseCipherInvite('482917')).toEqual({ room: '482917' });
+    expect(parseCipherInvite('https://x.test/r/123456')).toEqual({ room: '123456' });
+    expect(parseCipherInvite('https://x.test/c/workout-kingz')).toEqual({ lobby: 'workout-kingz' });
+    expect(parseCipherInvite('not-an-invite')).toBeNull();
+  });
+});
+
+describe('avatars', () => {
+  it('allows presets and tiny images, rejects junk', () => {
+    expect(sanitizeAvatar('bolt')).toBe('bolt');
+    expect(sanitizeAvatar('javascript:alert(1)')).toBeUndefined();
+    expect(sanitizeAvatar('data:image/jpeg;base64,abc')).toBe('data:image/jpeg;base64,abc');
   });
 });
 
@@ -106,6 +125,20 @@ describe('RoomManager', () => {
     expect(a.sent.some((m) => (m as { text?: string }).text === 'hello')).toBe(true);
     expect(b.sent.some((m) => (m as { text?: string }).text === 'hello')).toBe(true);
     expect(c.sent.some((m) => (m as { text?: string }).text === 'hello')).toBe(true);
+  });
+
+  it('opens Workout Kingz 2 when the first lounge is full and offers a split', () => {
+    const first = manager.joinLobby({ slug: 'workout-kingz', name: 'A0', ws: mockWs().ws });
+    expect(first.room.lobbyIndex).toBe(1);
+    expect(first.room.maxParticipants).toBe(8);
+    for (let i = 1; i < 8; i++) {
+      manager.joinLobby({ slug: 'workout-kingz', name: `A${i}`, ws: mockWs().ws });
+    }
+    const overflow = manager.joinLobby({ slug: 'workout-kingz', name: 'B0', ws: mockWs().ws });
+    expect(overflow.created).toBe(true);
+    expect(overflow.room.lobbyIndex).toBe(2);
+    expect(overflow.room.title).toBe('Workout Kingz 2');
+    expect(overflow.splitFrom?.lobbyIndex).toBe(1);
   });
 
   it('rejects a join when the room is full', () => {

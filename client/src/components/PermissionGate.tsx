@@ -43,7 +43,7 @@ export function PermissionGate({
   async function retry() {
     setBusy(true);
     setLocalError(undefined);
-    const g = await requestAv({ audio: true, video: true });
+    const g = await requestAv({ audio: true, video: false });
     setBusy(false);
     if (g.stream) {
       onConfirm({
@@ -87,8 +87,8 @@ export function PermissionGate({
 
         <p className="mt-2 text-sm text-slate-400">
           {busy
-            ? 'Your browser is asking for camera and microphone. Tap Allow — you will enter automatically.'
-            : 'Allow camera and microphone in the browser prompt. After you allow, the room opens on its own.'}
+            ? 'Your browser is asking for the microphone. Camera stays off until you turn it on in the room. Tap Allow — you will enter automatically.'
+            : 'Allow the microphone in the browser prompt. Camera stays off by default for privacy. After you allow, the room opens on its own.'}
         </p>
 
         <div className="mt-4 flex h-28 flex-col items-center justify-center gap-3 rounded-2xl bg-black/40 text-sm text-slate-400">
@@ -100,10 +100,10 @@ export function PermissionGate({
           ) : (
             <div className="flex gap-3">
               <span className="inline-flex items-center gap-1">
-                <Camera className="h-4 w-4 text-cyan-glow" /> Camera
-              </span>
-              <span className="inline-flex items-center gap-1">
                 <Mic className="h-4 w-4 text-cyan-glow" /> Microphone
+              </span>
+              <span className="inline-flex items-center gap-1 text-slate-500">
+                <Camera className="h-4 w-4" /> Camera off
               </span>
             </div>
           )}
@@ -118,7 +118,7 @@ export function PermissionGate({
         <div className="mt-5 flex flex-col gap-2">
           {!busy && (
             <button className="btn btn-primary w-full" type="button" onClick={() => void retry()}>
-              Allow camera & microphone
+              Allow microphone
             </button>
           )}
           <button

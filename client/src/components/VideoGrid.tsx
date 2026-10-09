@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Maximize2 } from 'lucide-react';
+import { Lock, Maximize2 } from 'lucide-react';
 import type { PeerMedia } from '../webrtc/callManager';
-import { initials, participantColor } from '../services/roomController';
+import { AvatarMark } from './AvatarMark';
 
 export function videoGridTemplate(count: number, narrow: boolean): { cols: number; rows: number } {
   const n = Math.max(1, count);
@@ -26,16 +26,18 @@ export function VideoGrid({
   quality,
   spotlight,
   onSpotlight,
+  onWhisper,
 }: {
   selfId: string;
   selfName: string;
   localStream: MediaStream | null;
   cameraOn: boolean;
   peers: PeerMedia[];
-  participants: { id: string; name: string; camera: boolean; microphone: boolean }[];
+  participants: { id: string; name: string; camera: boolean; microphone: boolean; avatar?: string }[];
   quality: Record<string, number>;
   spotlight: string | null;
   onSpotlight: (id: string | null) => void;
+  onWhisper?: (id: string) => void;
 }) {
   const [narrow, setNarrow] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : true,
@@ -51,13 +53,21 @@ export function VideoGrid({
 
   const tiles = useMemo(
     () => [
-      { id: selfId, name: selfName, stream: localStream, self: true, camera: cameraOn },
+      {
+        id: selfId,
+        name: selfName,
+        stream: localStream,
+        self: true,
+        camera: cameraOn,
+        avatar: participants.find((x) => x.id === selfId)?.avatar,
+      },
       ...peers.map((p) => ({
         id: p.id,
         name: participants.find((x) => x.id === p.id)?.name ?? 'Guest',
         stream: p.stream,
         self: false,
         camera: p.videoEnabled,
+        avatar: participants.find((x) => x.id === p.id)?.avatar,
       })),
     ],
     [selfId, selfName, localStream, cameraOn, peers, participants],
@@ -83,12 +93,7 @@ export function VideoGrid({
             />
           ) : (
             <div className="flex h-full items-center justify-center">
-              <div
-                className="flex h-14 w-14 items-center justify-center rounded-full text-lg font-semibold text-ink-950 sm:h-20 sm:w-20 sm:text-xl"
-                style={{ background: participantColor(t.id) }}
-              >
-                {initials(t.name)}
-              </div>
+              <AvatarMark id={t.id} name={t.name} avatar={t.avatar} size={80} />
             </div>
           )}
           <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm">
@@ -98,6 +103,15 @@ export function VideoGrid({
             </span>
             <span className="flex items-center gap-2">
               <QualityBars n={quality[t.id] ?? (t.self ? 3 : 2)} />
+              {!t.self && onWhisper && (
+                <button
+                  className="opacity-90 sm:opacity-0 sm:group-hover:opacity-100"
+                  aria-label={`Secret message ${t.name}`}
+                  onClick={() => onWhisper(t.id)}
+                >
+                  <Lock className="h-4 w-4" />
+                </button>
+              )}
               <button
                 className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100"
                 aria-label="Spotlight"

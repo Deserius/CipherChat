@@ -24,16 +24,41 @@ export default function HelpPage() {
         <h2 className="mt-8 text-xl font-semibold text-white">Join a room</h2>
         <ol className="list-decimal space-y-2 pl-5">
           <li>Pick a display name (examples cycle in the box).</li>
-          <li>Enter a 4–10 digit code or create a random room.</li>
-          <li>Allow camera and microphone when asked. The app cannot click Allow for you.</li>
-          <li>Share the QR or <code>/r/code</code> link.</li>
+          <li>Enter a 4–10 digit code, create a random room, or tap a common lounge (Workout Kingz, Study Hive, …).</li>
+          <li>Common lounges show house rules first. Agree or leave. No nudity, hate, or illegal content there.</li>
+          <li>Allow the microphone when asked. Camera stays off until you tap Camera in the room. The app cannot click Allow for you.</li>
+          <li>Share the QR, <code>/r/code</code>, or <code>/c/lounge-slug</code>. On the home screen, Scan QR reads a friend&apos;s code in-app.</li>
         </ol>
 
-        <h2 className="mt-8 text-xl font-semibold text-white">Video on a phone</h2>
+        <h2 className="mt-8 text-xl font-semibold text-white">When a lounge fills</h2>
         <p>
-          Open the Call tab. Faces tile in a grid that fills the screen — 2, 4, 6, 9 people without
-          scrolling. Tap a tile to spotlight it. If someone is missing, they should tap Camera; you
-          should not need to leave the room.
+          Each lounge has a max (e.g. Workout Kingz = 8). The next person opens <em>Workout Kingz 2</em>.
+          A few people in the first room are asked Stay or Go. New joiners land in the room with a free seat.
+        </p>
+
+        <h2 className="mt-8 text-xl font-semibold text-white">Secret messages</h2>
+        <p>
+          Tap the lock on a video tile or in People. Only you and that person decrypt it (ECDH). The lounge
+          never sees the plaintext. The server only unicasts ciphertext.
+        </p>
+
+        <h2 className="mt-8 text-xl font-semibold text-white">Camera privacy</h2>
+        <p>
+          Joining does not turn your camera on. You start in chat. Tap Camera when you want to be seen. Mic is
+          requested so you can talk; you can mute it any time.
+        </p>
+
+        <h2 className="mt-8 text-xl font-semibold text-white">Avatars</h2>
+        <p>
+          Pick a stylized mark or a tiny photo before you join (or in Settings). It is sent to the room for this
+          session only — not a profile, not stored after the room dies.
+        </p>
+
+        <h2 className="mt-8 text-xl font-semibold text-white">Video and screen share on a phone</h2>
+        <p>
+          Open the Call tab. Faces tile in a grid that fills the screen. Tap Share: Android Chrome can
+          share the screen or this tab; iPhone/iPad need Safari 17+ and “This Tab”. If share is blocked,
+          you will see a real error — we cannot bypass the OS picker.
         </p>
 
         <h2 className="mt-8 text-xl font-semibold text-white">Anonymous premium (pass codes)</h2>
@@ -47,8 +72,9 @@ export default function HelpPage() {
         <h2 className="mt-8 text-xl font-semibold text-white">Party rooms</h2>
         <p>
           One-time packs (Spark / House / Night / Weekend) reserve a room for N guests and a duration.
-          Friends join the numeric room code for free until seats fill. Buy extra invites later. Unused
-          seats can be refunded (pro-rated) from Plus with the pass code.
+          Friends join the numeric room code for free until seats fill. The host can open Look to set a session
+          title, background, font, and accent — shared with guests, not saved to a cloud. Buy extra invites later.
+          Unused seats can be refunded (pro-rated) from Plus with the pass code.
         </p>
 
         <h2 className="mt-8 text-xl font-semibold text-white">Stripe test cards</h2>

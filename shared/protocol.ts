@@ -14,7 +14,11 @@ export type ClientMessage =
   | RetractMessage
   | PingMessage
   | MediaStateMessage
-  | HeartbeatMessage;
+  | HeartbeatMessage
+  | WhisperMessage
+  | SplitDecisionMessage
+  | PresenceMessage
+  | RoomThemeMessage;
 
 export type ServerMessage =
   | WelcomeMessage
@@ -35,7 +39,11 @@ export type ServerMessage =
   | SystemMessage
   | RoomDestroyedMessage
   | MediaStateRelayMessage
-  | RateLimitedMessage;
+  | RateLimitedMessage
+  | WhisperRelayMessage
+  | SplitOfferMessage
+  | PresenceRelayMessage
+  | RoomThemeRelayMessage;
 
 export interface JoinMessage {
   type: 'join';
@@ -47,6 +55,12 @@ export interface JoinMessage {
   entitlement?: string;
   /** Anonymous recovery / party pass (CCHAT-XXXX-XXXX-XXXX). */
   passCode?: string;
+  /** Public themed lounge slug (e.g. workout-kingz). */
+  lobby?: string;
+  /** Overflow instance (2, 3, …). Omit to join the first room with a free seat. */
+  lobbyIndex?: number;
+  /** Session avatar: preset id or tiny data URL. Never persisted. */
+  avatar?: string;
 }
 
 export interface LeaveMessage {
@@ -138,6 +152,67 @@ export interface MediaStateMessage {
   screen: boolean;
 }
 
+/** Pairwise encrypted note. Server unicasts; cannot read ciphertext. */
+export interface WhisperMessage {
+  type: 'whisper';
+  to: string;
+  ciphertext: string;
+  iv: string;
+  clientId: string;
+}
+
+export interface SplitDecisionMessage {
+  type: 'split-decision';
+  accept: boolean;
+  lobby: string;
+  index: number;
+}
+
+export interface PresenceMessage {
+  type: 'presence';
+  avatar?: string;
+}
+
+export interface RoomThemeMessage {
+  type: 'room-theme';
+  title?: string;
+  background?: string;
+  font?: 'sans' | 'mono' | 'serif';
+  accent?: string;
+}
+
+export interface WhisperRelayMessage {
+  type: 'whisper';
+  from: string;
+  fromName: string;
+  ciphertext: string;
+  iv: string;
+  clientId: string;
+  ts: number;
+}
+
+export interface SplitOfferMessage {
+  type: 'split-offer';
+  lobby: string;
+  index: number;
+  title: string;
+  reason: string;
+}
+
+export interface PresenceRelayMessage {
+  type: 'presence';
+  from: string;
+  avatar?: string;
+}
+
+export interface RoomThemeRelayMessage {
+  type: 'room-theme';
+  title?: string;
+  background?: string;
+  font?: 'sans' | 'mono' | 'serif';
+  accent?: string;
+}
+
 export interface WelcomeMessage {
   type: 'welcome';
   iceServers: RTCIceServerLike[];
@@ -152,6 +227,18 @@ export interface JoinedMessage {
   participants: PublicParticipant[];
   created: boolean;
   iceServers: RTCIceServerLike[];
+  title?: string;
+  kind?: 'code' | 'lobby' | 'party';
+  lobbySlug?: string;
+  lobbyIndex?: number;
+  maxParticipants?: number;
+  host?: boolean;
+  theme?: {
+    title?: string;
+    background?: string;
+    font?: 'sans' | 'mono' | 'serif';
+    accent?: string;
+  };
 }
 
 export interface ParticipantJoinedMessage {
@@ -296,6 +383,7 @@ export interface PublicParticipant {
   camera: boolean;
   microphone: boolean;
   screen: boolean;
+  avatar?: string;
 }
 
 export interface PublicConfig {

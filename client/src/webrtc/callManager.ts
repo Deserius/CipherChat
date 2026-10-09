@@ -58,12 +58,17 @@ export class CallManager {
     this.plan = plan;
   }
 
-  /** Attach a stream already obtained from the permission gate. */
+  /** Attach a stream already obtained from the permission gate. Camera stays off until the user enables it. */
   attachExistingStream(stream: MediaStream) {
+    stream.getVideoTracks().forEach((t) => {
+      t.enabled = false;
+      t.stop();
+      stream.removeTrack(t);
+    });
     this.localStream = stream;
     this.micOn = stream.getAudioTracks().some((t) => t.enabled && t.readyState === 'live');
-    this.cameraOn = stream.getVideoTracks().some((t) => t.enabled && t.readyState === 'live');
-    this.audioOnly = this.micOn && !this.cameraOn;
+    this.cameraOn = false;
+    this.audioOnly = this.micOn;
     void this.pushTracksToAll();
     this.onLocalStream(stream);
   }
@@ -336,21 +341,43 @@ export class CallManager {
 
   async setScreen(on: boolean) {
     if (on) {
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        this.onError(
+          'This browser cannot share a screen. On iPhone/iPad use Safari 17+, tap Share, then pick this tab. Chrome on Android is supported.',
+        );
+        return;
+      }
       try {
         const fps = limitsForPlan(this.plan).screenFps;
-        const stream = await navigator.mediaDevices.getDisplayMedia({
-          video: { frameRate: fps },
-          audio: true,
-        });
+        const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const video = mobile
+          ? { frameRate: { ideal: 12, max: 20 } }
+          : { frameRate: fps, width: { max: 1920 }, height: { max: 1080 } };
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getDisplayMedia({
+            video,
+            audio: !mobile,
+            // Chrome: prefer the current tab on phones (full-device share is often blocked).
+            preferCurrentTab: mobile,
+            selfBrowserSurface: 'include',
+            surfaceSwitching: 'include',
+            systemAudio: 'exclude',
+          } as DisplayMediaStreamOptions);
+        } catch {
+          stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+        }
         this.screenStream = stream;
         this.screenOn = true;
         stream.getVideoTracks()[0]?.addEventListener('ended', () => {
           void this.setScreen(false);
         });
         await this.pushTracksToAll();
-        this.onLocalStream(this.localStream);
+        this.onLocalStream(stream);
       } catch {
-        this.onError('Screen sharing was cancelled or is unavailable.');
+        this.onError(
+          'Screen share was cancelled or blocked. Mobile: use HTTPS, tap Share once, and pick this tab / this screen.',
+        );
         this.screenOn = false;
       }
     } else {
@@ -358,6 +385,7 @@ export class CallManager {
       this.screenStream = null;
       this.screenOn = false;
       await this.pushTracksToAll();
+      this.onLocalStream(this.localStream);
     }
   }
 

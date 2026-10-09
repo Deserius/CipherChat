@@ -10,7 +10,10 @@ When the last participant leaves, the room is destroyed. Messages are not writte
 
 ## Features
 
-- Zero-account join: display name + room code
+- Zero-account join: display name + room code, or a themed common lounge
+- Lounge overflow (`Name 2`) when a cap is hit, with Stay/Go for a few people
+- Pairwise secret messages (lock on a tile / People)
+- House rules modal on common lounges (no nudity, no hate)
 - Cryptographically random 4–10 digit room identifiers
 - Real-time group chat over WebSockets
 - Client-side AES-256-GCM messaging with ECDH P-256 key wrap
@@ -41,7 +44,7 @@ WebRTC mesh (DTLS/SRTP) ── optional TURN (coturn)
                          ── optional Twilio PSTN/SMS
 ```
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/BILLING.md](docs/BILLING.md), [docs/ENCRYPTION.md](docs/ENCRYPTION.md), [docs/SECURITY.md](docs/SECURITY.md), and [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/LOBBIES.md](docs/LOBBIES.md), [docs/BILLING.md](docs/BILLING.md), [docs/CUSTOMIZE.md](docs/CUSTOMIZE.md), [docs/ENCRYPTION.md](docs/ENCRYPTION.md), [docs/SECURITY.md](docs/SECURITY.md), and [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
 
 ## Security model (short)
 

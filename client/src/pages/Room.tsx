@@ -22,6 +22,8 @@ import {
   X,
   Smile,
   CircleHelp,
+  Lock,
+  Sparkles,
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { useSession, type ChatLine } from '../stores/session';
@@ -38,6 +40,9 @@ import { listDevices } from '../webrtc/callManager';
 import { InviteShare } from '../components/InviteShare';
 import { VideoGrid, QualityBars } from '../components/VideoGrid';
 import { getPlan } from '../services/entitlement';
+import { WhisperSheet } from '../components/WhisperSheet';
+import { AvatarMark, AvatarPicker } from '../components/AvatarMark';
+import { PartyThemeForm, themeStyle } from '../components/PartyTheme';
 
 export default function RoomPage() {
   const { code } = useParams();
@@ -110,7 +115,15 @@ function RoomShell({ expected }: { expected: string }) {
   const [spotlight, setSpotlight] = useState<string | null>(null);
   const [perm, setPerm] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [lookOpen, setLookOpen] = useState(false);
+  const [whisperTo, setWhisperTo] = useState<{ id: string; name: string } | null>(null);
   const created = useSession((s) => s.created);
+  const roomTitle = useSession((s) => s.roomTitle);
+  const kind = useSession((s) => s.kind);
+  const splitOffer = useSession((s) => s.splitOffer);
+  const theme = useSession((s) => s.theme);
+  const isHost = useSession((s) => s.isHost);
+  const avatar = useSession((s) => s.avatar);
 
   const participants = useSession((s) => s.participants);
   const name = useSession((s) => s.name);
@@ -187,13 +200,15 @@ function RoomShell({ expected }: { expected: string }) {
   const plan = getPlan();
 
   return (
-    <div className="flex h-dvh min-h-dvh flex-col overflow-hidden">
+    <div className="flex h-dvh min-h-dvh flex-col overflow-hidden" style={themeStyle(theme)}>
       <header className="glass sticky top-0 z-20 flex items-center justify-between gap-3 rounded-none border-x-0 border-t-0 px-3 py-2.5 sm:px-5">
         <Logo compact />
         <div className="flex min-w-0 flex-1 flex-col items-center">
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-400">Secure room</div>
-          <div className="flex items-center gap-2 font-mono text-lg tracking-[0.28em] text-white">
-            {expected}
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-400">
+            {kind === 'lobby' ? 'Common lounge' : 'Secure room'}
+          </div>
+          <div className={`flex items-center gap-2 text-white ${kind === 'lobby' ? 'text-base font-semibold tracking-tight' : 'font-mono text-lg tracking-[0.28em]'}`}>
+            {roomTitle || expected}
             <button className="text-cyan-glow" aria-label="Copy room code" onClick={() => void copy('code')}>
               {copied === 'code' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             </button>
@@ -256,6 +271,10 @@ function RoomShell({ expected }: { expected: string }) {
               quality={quality}
               spotlight={spotlight}
               onSpotlight={setSpotlight}
+              onWhisper={(id) => {
+                const p = participants.find((x) => x.id === id);
+                if (p) setWhisperTo({ id: p.id, name: p.name });
+              }}
             />
           </section>
         )}
@@ -271,6 +290,7 @@ function RoomShell({ expected }: { expected: string }) {
             selfId={participantId}
             quality={quality}
             onInvite={() => setInviteOpen(true)}
+            onWhisper={(id, n) => setWhisperTo({ id, name: n })}
           />
         )}
       </div>
@@ -283,7 +303,7 @@ function RoomShell({ expected }: { expected: string }) {
           <Control label={cam ? 'Camera' : 'Camera'} on={cam} off={!cam} onClick={() => void toggleCam()}>
             {cam ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
           </Control>
-          <Control label="Screen" on={screen} onClick={() => void toggleScreen()}>
+          <Control label={/iPhone|iPad|Android/i.test(navigator.userAgent) ? 'Share' : 'Screen'} on={screen} onClick={() => void toggleScreen()}>
             <MonitorUp className="h-5 w-5" />
           </Control>
           <Control label="People" onClick={() => setTab('people')}>
@@ -298,6 +318,11 @@ function RoomShell({ expected }: { expected: string }) {
           <Control label="Help" onClick={() => nav('/help')}>
             <CircleHelp className="h-5 w-5" />
           </Control>
+          {kind === 'party' && isHost && (
+            <Control label="Look" onClick={() => setLookOpen(true)}>
+              <Sparkles className="h-5 w-5" />
+            </Control>
+          )}
           <Control label="Settings" onClick={() => setSettingsOpen(true)}>
             <Settings2 className="h-5 w-5" />
           </Control>
@@ -313,6 +338,40 @@ function RoomShell({ expected }: { expected: string }) {
       </nav>
 
       {inviteOpen && <InviteShare code={expected} onClose={() => setInviteOpen(false)} />}
+
+      {whisperTo && (
+        <WhisperSheet
+          toId={whisperTo.id}
+          toName={whisperTo.name}
+          onClose={() => setWhisperTo(null)}
+        />
+      )}
+
+      {splitOffer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true">
+          <div className="glass w-full max-w-md rounded-3xl p-6">
+            <h2 className="text-xl font-semibold text-white">{splitOffer.title} just opened</h2>
+            <p className="mt-2 text-sm text-slate-400">{splitOffer.reason}</p>
+            <div className="mt-5 flex gap-3">
+              <button
+                className="btn btn-ghost flex-1"
+                onClick={() => useSession.getState().set({ splitOffer: undefined })}
+              >
+                Stay
+              </button>
+              <button
+                className="btn btn-primary flex-1"
+                onClick={() => {
+                  useSession.getState().set({ splitOffer: undefined });
+                  void getController().migrateLobby(splitOffer.lobby, splitOffer.index);
+                }}
+              >
+                Go
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {leaveOpen && (
         <Modal title="Leave room?" onClose={() => setLeaveOpen(false)}>
@@ -335,8 +394,14 @@ function RoomShell({ expected }: { expected: string }) {
         </Modal>
       )}
 
+      {lookOpen && (
+        <Modal title="Party look" onClose={() => setLookOpen(false)}>
+          <PartyThemeForm value={theme} onClose={() => setLookOpen(false)} />
+        </Modal>
+      )}
+
       {settingsOpen && (
-        <Modal title="Devices" onClose={() => setSettingsOpen(false)}>
+        <Modal title="Devices & identity" onClose={() => setSettingsOpen(false)}>
           <label className="text-xs uppercase tracking-wider text-slate-400">Camera</label>
           <select
             className="field mb-3 mt-1"
@@ -376,6 +441,13 @@ function RoomShell({ expected }: { expected: string }) {
               </option>
             ))}
           </select>
+          <div className="mt-4">
+            <AvatarPicker
+              value={avatar}
+              onChange={(v) => getController().setAvatar(v)}
+            />
+          </div>
+          <p className="mt-3 text-xs text-slate-500">Camera stays off until you tap Camera. Mic is separate.</p>
           <button className="btn btn-ghost mt-4 w-full" onClick={() => void copy('link')}>
             {copied === 'link' ? 'Invite link copied' : 'Copy invite link'}
           </button>
@@ -551,6 +623,7 @@ function ChatPanel() {
 
 function MessageBubble({ m, self }: { m: ChatLine; self: boolean }) {
   const [menu, setMenu] = useState(false);
+  const peer = useSession((s) => s.participants.find((p) => p.id === m.from));
   if (m.kind === 'system') {
     return <div className="msg-enter text-center text-xs text-slate-500">{m.text}</div>;
   }
@@ -558,7 +631,8 @@ function MessageBubble({ m, self }: { m: ChatLine; self: boolean }) {
     return <div className="msg-enter text-center text-xs italic text-slate-600">Message removed</div>;
   }
   return (
-    <div className={`msg-enter flex ${self ? 'justify-end' : 'justify-start'}`}>
+    <div className={`msg-enter flex items-end gap-2 ${self ? 'justify-end' : 'justify-start'}`}>
+      {!self && <AvatarMark id={m.from} name={m.fromName} avatar={peer?.avatar} size={28} />}
       <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${self ? 'bg-cyan-glow/15 text-white' : 'bg-white/5 text-slate-100'}`}>
         <div className="mb-0.5 flex items-center gap-2 text-[11px] text-slate-400">
           <span className="font-medium" style={{ color: participantColor(m.from) }}>
@@ -573,6 +647,15 @@ function MessageBubble({ m, self }: { m: ChatLine; self: boolean }) {
           <a className="mb-1 block text-cyan-glow underline" href={m.fileUrl} download={m.fileName}>
             {m.fileName}
           </a>
+        )}
+        {m.kind === 'whisper' && (
+          <p className="whitespace-pre-wrap break-words text-sm">
+            <span className="mb-1 flex items-center gap-1 text-[11px] text-cyan-glow">
+              <Lock className="h-3 w-3" />
+              {self ? `Secret to ${m.whisperToName ?? 'them'}` : 'Secret · only you two'}
+            </span>
+            {m.text}
+          </p>
         )}
         {m.kind === 'text' && <p className="whitespace-pre-wrap break-words text-sm">{linkify(m.text)}</p>}
         <div className="mt-1 flex flex-wrap items-center gap-1">
@@ -624,6 +707,7 @@ function MessageBubble({ m, self }: { m: ChatLine; self: boolean }) {
           </div>
         )}
       </div>
+      {self && <AvatarMark id={m.from} name={m.fromName} avatar={peer?.avatar} size={28} />}
     </div>
   );
 }
@@ -646,10 +730,12 @@ function PeoplePanel({
   selfId,
   quality,
   onInvite,
+  onWhisper,
 }: {
   selfId: string;
   quality: Record<string, number>;
   onInvite: () => void;
+  onWhisper: (id: string, name: string) => void;
 }) {
   const participants = useSession((s) => s.participants);
   return (
@@ -663,12 +749,7 @@ function PeoplePanel({
       <ul className="space-y-2">
         {participants.map((p) => (
           <li key={p.id} className="flex items-center gap-3 rounded-xl bg-white/5 px-3 py-2">
-            <div
-              className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-ink-950"
-              style={{ background: participantColor(p.id) }}
-            >
-              {initials(p.name)}
-            </div>
+            <AvatarMark id={p.id} name={p.name} avatar={p.avatar} size={36} />
             <div className="flex-1">
               <div className="text-sm">
                 {p.name}
@@ -678,6 +759,15 @@ function PeoplePanel({
                 {p.camera ? 'Camera on' : 'Camera off'} · {p.microphone ? 'Mic on' : 'Muted'}
               </div>
             </div>
+            {p.id !== selfId && (
+              <button
+                className="rounded-full p-2 text-cyan-glow hover:bg-white/10"
+                aria-label={`Secret message ${p.name}`}
+                onClick={() => onWhisper(p.id, p.name)}
+              >
+                <Lock className="h-4 w-4" />
+              </button>
+            )}
             <QualityBars n={quality[p.id] ?? 3} />
           </li>
         ))}
